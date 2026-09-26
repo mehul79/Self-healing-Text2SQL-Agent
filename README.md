@@ -24,6 +24,7 @@ What I learned building it:
 - [Usage](#usage)
 - [Tests](#tests)
 - [Project Layout](#project-layout)
+- [UI Demo](#ui-demo)
 - [Future Updates](#future-updates)
 - [Credits](#credits)
 - [License](#license)
@@ -49,7 +50,8 @@ The agent is a LangGraph state machine. Each node reads and updates a shared typ
 - Read-only database role, even in development
 - Any OpenAI-compatible LLM provider, chosen by env vars
 - Server-sent event stream of each graph step as it runs
-- Next.js frontend with a schema browser, SQL highlighting, and a repair timeline
+- Saved chats with follow-up questions ("only rock", "now compare with 2022")
+- Next.js chat UI with a live status line, a Stop button, SQL highlighting, and a repair timeline
 
 ## Installation
 
@@ -181,11 +183,21 @@ frontend/     Next.js UI
 notebooks/    prototypes: SQLAlchemy, asyncio, LangGraph
 ```
 
+## UI Demo
+
+A saved chat: the collapsed step trail, the generated SQL with a copy button, and the result rows.
+
+![Chat with a multi-join query and its results](docs/ui-chat.png)
+
+A new chat. Saved chats are in the sidebar, and the schema browser opens from the header.
+
+![Empty new chat with the chat sidebar](docs/ui-new-chat.png)
+
 ## Future Updates
 
+- [x] Handle follow-up questions ("only for 2025", "now compare with 2024")
 - [ ] Track accuracy, repair count, latency, and cost per query
 - [ ] Benchmark against Spider and BIRD
-- [ ] Handle follow-up questions ("only for 2025", "now compare with 2024")
 - [ ] Retrieve schema with embeddings for schemas too big to send whole
 - [ ] Add a glossary mapping business terms to real tables and columns
 - [ ] Add tracing for the agent's runs
