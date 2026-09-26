@@ -883,26 +883,31 @@
         </div>
       </div>
 
-      <div class="block">
+      <div class="block done">
         <div class="clock">60 min</div>
         <div>
+          <span class="tag-done">Done</span>
           <h3>The chat page</h3>
           <p><code>npx shadcn add message-scroller message bubble marker sidebar</code>. Chat list in the sidebar, <code>MessageScroller</code> of <code>Message</code> + <code>Bubble</code> rows, input pinned at the bottom. The assistant bubble holds the answer, <code>SqlHighlight</code>, the results table, and <code>RepairTimeline</code> when there was a repair. The hand-built components move in unchanged.</p>
           <p class="why"><b>learn</b> the library handles scrolling. The repair timeline is still ours.</p>
+          <p style="color:var(--muted);font-size:0.86rem"><code>chat-message.tsx</code>, <code>chat-sidebar.tsx</code>, and <code>results-table.tsx</code> (pulled out of <code>QueryPanel</code>). The store's read side (list, open, new, delete) landed here so the page showed real chats without throwaway fetch code.</p>
         </div>
       </div>
 
-      <div class="block">
+      <div class="block done">
         <div class="clock">60 min</div>
         <div>
+          <span class="tag-done">Done</span>
           <h3>Chat store and the live status line</h3>
           <p><code>store/chats.ts</code> in zustand holds the chat list, the open chat, and its messages. <code>useQueryStream</code> takes a chat id and adds events to the pending reply. One <code>Marker</code> with <code>shimmer</code> shows the node that's running: "Reading the database schema", "Writing the SQL query", "Checking the query is safe", "Running the query", "Working out what went wrong", "Fixing the query". The Stop button calls the <code>AbortController</code> the hook already has. <code>QueryPanel</code> and <code>store/query.ts</code> get deleted once the chat page works.</p>
+          <p style="color:var(--muted);font-size:0.86rem">Built: <code>send</code> and <code>stop</code> live in the store, not the hook. The SSE parsing moved to <code>lib/sse.ts</code>, and <code>useQueryStream</code> was deleted along with <code>QueryPanel</code>, <code>store/query.ts</code>, and <code>TypewriterText</code>. The chat page is now <code>/</code>, with the schema browser in a side sheet. <code>chat-status.tsx</code> maps the last finished node to the phrase for the step running next. A stopped reply shows locally, since the server's "stopped" copy can land after an immediate reload. <code>tsc</code>, eslint, and <code>next build</code> are clean.</p>
+          <p style="color:var(--muted);font-size:0.86rem">Fixed while testing: (1) Next's dev proxy gzipped the stream and delivered every event at once, so both stream endpoints now send <code>Cache-Control: no-transform</code>. Measured before and after through port 3000. (2) <code>Decimal</code> results crashed the save into the JSON column, so the chat engine now has a <code>json_serializer</code>. (3) New chat no longer creates an empty chat on the server. The chat is created on its first question. Added along the way: a collapsible step trail on each reply, a copy button on SQL blocks, and Ctrl/⌘+Shift+O for a new chat. Stop verified through the proxy: the reply is saved as <code>stopped</code>.</p>
         </div>
       </div>
 
       <div class="gate">
         <span class="lbl">End of day 5 — checkpoint</span>
-        <p>Start a chat, ask a question, then ask a follow-up that only makes sense after the first answer. The status line ticks through each node, repairs included. Reload the page and switch chats, and everything is still there. The security tests and Chinook self-checks still pass.</p>
+        <p><strong>✓ Complete.</strong> Start a chat, ask a question, then ask a follow-up that only makes sense after the first answer. The status line ticks through each node, repairs included. Reload the page and switch chats, and everything is still there. The security tests and Chinook self-checks still pass.</p>
       </div>
     </div>
   </section>
