@@ -24,6 +24,7 @@ What I learned building it:
 - [Usage](#usage)
 - [Tests](#tests)
 - [Project Layout](#project-layout)
+- [Future Updates](#future-updates)
 - [Credits](#credits)
 - [License](#license)
 
@@ -57,8 +58,8 @@ Requirements: Python 3.14, [uv](https://docs.astral.sh/uv/), Docker, Node.js.
 1. Clone the repo and install Python dependencies:
 
    ```bash
-   git clone https://github.com/mehul79/Text2SQL.git
-   cd Text2SQL
+   git clone https://github.com/mehul79/Self-healing-Text2SQL-Agent.git
+   cd Self-healing-Text2SQL-Agent
    uv sync
    ```
 
@@ -160,6 +161,23 @@ backend/
 frontend/     Next.js UI
 notebooks/    prototypes: SQLAlchemy, asyncio, LangGraph
 ```
+
+## Future Updates
+
+Phases 1-4 of the PRD's development plan (`.claude/PRD — Self-Healing Text-to-SQL Assistant.md`, §34) are done: baseline question-to-result, the LangGraph agent with schema retrieval and a retry loop, self-healing repair, and the security layer (read-only role, SQL parser allowlist, query limits, timeouts). Currently working through **Phase 5 — Evaluation**.
+
+Planned, in roughly the PRD's own order:
+
+- [ ] Evaluation pipeline: track expected vs. generated SQL, execution accuracy, recovery rate, first-attempt accuracy, repair attempts, latency, cost per query (§23)
+- [ ] Benchmark against public text-to-SQL datasets: Spider, Spider 2.0/2.0-Lite, BIRD (§24)
+- [ ] Multi-turn conversations: follow-up questions ("only for 2025", "now compare with 2024") using LangGraph state/checkpointing to keep context (§18)
+- [ ] Schema retrieval layer using embeddings/pgvector, for schemas too large to send in full (§8)
+- [ ] Business semantic layer: a glossary mapping business terms to actual tables/columns (§9)
+- [ ] LangSmith or OpenTelemetry for tracing and observability (§21-22)
+- [ ] Database-level protections beyond the app layer: query cost limits, restricted schemas, network isolation (§17, Layer 6)
+- [ ] Model experiments and fine-tuning on collected query data (§25-28)
+
+CLAUDE.md scopes this project to the fundamentals first, so observability, evaluation, and MLOps (§21-28) stay ideas until the phases before them are solid.
 
 ## Credits
 
