@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from backend.api.routers.query import SSE_HEADERS
 from backend.chats.models import Chat, Message, app_engine, get_app_session
 from backend.graph.build import graph, initial_state
 from backend.graph.state import Turn
@@ -152,10 +153,13 @@ def send_message(chat_id: uuid.UUID, request: MessageRequest, session: Session =
         await asyncio.to_thread(_save_reply, chat_id, state, saved_events, state["status"])
         yield "data: [DONE]\n\n"
 
-    return StreamingResponse(events(), media_type="text/event-stream")
+    return StreamingResponse(events(), media_type="text/event-stream", headers=SSE_HEADERS)
 
 
 if __name__ == "__main__":
+    from datetime import date
+    from decimal import Decimal
+
     from backend.chats.models import Base, Message, app_engine
 
     Base.metadata.create_all(app_engine)
@@ -168,12 +172,16 @@ if __name__ == "__main__":
         chat.messages.append(Message(role="user", content="How many tracks?"))
         chat.messages.append(Message(role="assistant", content="3503", sql="SELECT COUNT(*) FROM track",
                                      rows=[{"count": 3503}], status="ok", attempts=0, events=[]))
+        # SUM()/AVG() come back as Decimal and dates as date; both must survive the JSON column
+        chat.messages.append(Message(role="assistant", content="", rows=[{"revenue": Decimal("523.06"),
+                                     "day": date(2021, 1, 1)}], status="ok", attempts=0))
         session.commit()
 
         detail = get_chat(created.id, session)
-        assert [m.role for m in detail.messages] == ["user", "assistant"]
+        assert [m.role for m in detail.messages] == ["user", "assistant", "assistant"]
         assert detail.messages[1].rows == [{"count": 3503}]
-        assert _history(chat.messages) == [Turn(question="How many tracks?", sql="SELECT COUNT(*) FROM track", status="ok")]
+        assert detail.messages[2].rows == [{"revenue": "523.06", "day": "2021-01-01"}]
+        assert _history(chat.messages[:2]) == [Turn(question="How many tracks?", sql="SELECT COUNT(*) FROM track", status="ok")]
         # a question whose reply never got saved pairs with nothing; the next one does
         orphan = [Message(role="user", content="lost"), Message(role="user", content="kept"),
                   Message(role="assistant", content="", sql=None, status="stopped")]

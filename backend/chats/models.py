@@ -1,3 +1,4 @@
+import json
 import os
 import uuid
 from datetime import datetime
@@ -19,7 +20,11 @@ app_url = URL.create(
     database=os.environ["APP_DB_NAME"],
 )
 
-app_engine = create_engine(app_url, pool_size=5)
+# Query results carry Decimal (SUM, AVG, NUMERIC columns) and dates, which the stdlib
+# JSON encoder rejects. str() matches what the SSE stream already sends the browser.
+app_engine = create_engine(
+    app_url, pool_size=5, json_serializer=lambda obj: json.dumps(obj, default=str)
+)
 
 
 class Base(DeclarativeBase):

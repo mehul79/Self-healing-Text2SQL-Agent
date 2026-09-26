@@ -14,6 +14,11 @@ router = APIRouter()
 # repairs. 30s only ever fit the questions that got it right first try.
 REQUEST_TIMEOUT_SECONDS = 150
 
+# Next's dev proxy gzips responses, and gzip holds bytes back until it has a full block,
+# so every event arrived at once when the stream ended. no-transform tells it not to
+# compress; X-Accel-Buffering does the same for nginx if one ever sits in front.
+SSE_HEADERS = {"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"}
+
 # ponytail: in-memory dict — fine for a single dev process, swap for a real
 # store (Postgres table, Redis) if this needs to survive a restart or scale out.
 _STORE: dict[str, "QueryResponse"] = {}
@@ -77,7 +82,7 @@ async def query_stream(request: QueryRequest):
                 yield f"data: {json.dumps({'node': node_name, 'data': node_output}, default=str)}\n\n"
         yield "data: [DONE]\n\n"
 
-    return StreamingResponse(events(), media_type="text/event-stream")
+    return StreamingResponse(events(), media_type="text/event-stream", headers=SSE_HEADERS)
 
 
 if __name__ == "__main__":
