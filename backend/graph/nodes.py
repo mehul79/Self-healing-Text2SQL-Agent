@@ -2,11 +2,15 @@ import asyncio
 
 from backend.database.connection import run_query
 from backend.database.schema import format_schema, reflect_schema
-from backend.graph.state import SQLAgentState
+from backend.graph.state import SQLAgentState, Turn
 from backend.llm.client import SQLResponse, get_structured_llm
 from backend.security.sql_guard import validate_sql
 
 MAX_REPAIR_ATTEMPTS = 3
+
+# a follow-up almost always refers to the last turn or two; 5 covers "go back to
+# the first one" without the prompt growing with every message in a long chat.
+MAX_HISTORY_TURNS = 5
 
 # backstop above the DB's own statement_timeout (backend/database/connection.py) —
 # if that layer ever fails to fire (driver hang, network stall), the app still cuts
@@ -50,6 +54,28 @@ def classify_error(error: str) -> str:
     return "unknown"
 
 
+def format_history(history: list[Turn]) -> str:
+    """Prompt block for earlier turns, or "" when there are none.
+
+    Only the question and final SQL go in. Result rows stay out: they cost tokens,
+    and the database's data has never been sent to the LLM.
+    """
+    turns = history[-MAX_HISTORY_TURNS:]
+    if not turns:
+        return ""
+    lines = ["Earlier in this conversation (oldest first):"]
+    for turn in turns:
+        lines.append(f"Q: {turn['question']}")
+        # a failed turn's SQL is wrong by definition; showing it invites the model to reuse it
+        lines.append(f"SQL: {turn['sql']}" if turn["status"] == "ok" else "SQL: none, this turn failed")
+    lines.append(
+        "The question below may be a follow-up to these turns. If it refers back to them "
+        "(\"only rock\", \"now compare with 2022\"), build on the most recent relevant SQL. "
+        "If it's a new question, ignore them."
+    )
+    return "\n".join(lines) + "\n\n"
+
+
 def understand(state: SQLAgentState) -> dict:
     return {"errors": [], "attempts": 0}
 
@@ -66,6 +92,7 @@ async def retrieve_schema(state: SQLAgentState) -> dict:
 async def generate_sql(state: SQLAgentState) -> dict:
     prompt = (
         f"Database schema:\n{state['schema']}\n\n"
+        f"{format_history(state['history'])}"
         f"Question: {state['question']}\n\n"
         "Write a single read-only SQL query (SELECT or WITH ... SELECT only) "
         "that answers the question using only the tables and columns above."
@@ -101,6 +128,7 @@ async def repair_sql(state: SQLAgentState) -> dict:
     hint = _CATEGORY_HINTS[state.get("error_category", "unknown")]
     prompt = (
         f"Database schema:\n{state['schema']}\n\n"
+        f"{format_history(state['history'])}"
         f"Question: {state['question']}\n\n"
         f"Previous SQL attempt:\n{state['sql']}\n\n"
         f"That query failed with:\n{state['errors'][-1]}\n\n"
@@ -139,3 +167,11 @@ if __name__ == "__main__":
     assert classify_error(f"query exceeded the {QUERY_WALL_CLOCK_SECONDS}s wall-clock limit") == "timeout"
     assert classify_error("something unrecognised") == "unknown"
     print("classify_error self-check passed")
+
+    assert format_history([]) == ""
+    turns = [Turn(question=f"q{i}", sql=f"SELECT {i}", status="ok") for i in range(7)]
+    block = format_history(turns)
+    assert "q0" not in block and "q1" not in block and "q2" in block and "q6" in block
+    failed = format_history([Turn(question="bad one", sql="SELECT * FROM ghost", status="failed")])
+    assert "ghost" not in failed and "this turn failed" in failed
+    print("format_history self-check passed")

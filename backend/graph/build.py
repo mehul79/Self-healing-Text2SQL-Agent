@@ -11,7 +11,7 @@ from backend.graph.nodes import (
     understand,
     validate,
 )
-from backend.graph.state import SQLAgentState
+from backend.graph.state import SQLAgentState, Turn
 
 
 def _route_after_check(state: SQLAgentState) -> str:
@@ -51,9 +51,10 @@ builder.add_edge("respond", END)
 graph = builder.compile()
 
 
-def initial_state(question: str) -> SQLAgentState:
+def initial_state(question: str, history: list[Turn] | None = None) -> SQLAgentState:
     return {
         "question": question,
+        "history": history or [],
         "schema": "",
         "schema_tables": [],
         "schema_columns": {},

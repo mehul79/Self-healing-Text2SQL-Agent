@@ -1,8 +1,16 @@
 from typing import TypedDict
 
 
+class Turn(TypedDict):
+    question: str
+    sql: str
+    status: str
+
+
 class SQLAgentState(TypedDict):
     question: str
+    # earlier turns in this chat, oldest first; result rows deliberately left out
+    history: list[Turn]
     schema: str
     schema_tables: list[str]
     schema_columns: dict[str, list[str]]
