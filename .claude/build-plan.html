@@ -829,47 +829,57 @@
     </div>
 
     <div class="blocks">
-      <div class="block">
+      <div class="block done">
         <div class="clock">30 min</div>
         <div>
+          <span class="tag-done">Done</span>
           <h3>Two databases, two roles</h3>
           <p>Chats live in their own Postgres database, <code>text2sql_app</code>, written by an <code>app_writer</code> role that can't see Chinook. The agent's engine stays read-only and can't see the chats. New connection vars go in <code>.env.example</code>.</p>
           <p class="why"><b>learn</b> the code that saves chats and the code that runs model-written SQL never share credentials.</p>
+          <p style="color:var(--muted);font-size:0.86rem">Setup SQL in README step 6. Verified: <code>app_writer</code> gets <code>permission denied for database "text2sql"</code>, and <code>readonly_user</code> gets the same for <code>text2sql_app</code>.</p>
         </div>
       </div>
 
-      <div class="block">
+      <div class="block done">
         <div class="clock">60 min</div>
         <div>
+          <span class="tag-done">Done</span>
           <h3>Chat tables with the ORM</h3>
           <p><code>04-chat-store.ipynb</code>, then <code>backend/chats/models.py</code>. <code>Chat</code>: id, title, timestamps. <code>Message</code>: chat_id, role, content, sql, rows, status, attempts, events. Rows and node events are JSON columns, so a reopened chat can redraw its repair timeline. <code>create_all</code> on startup, no Alembic yet.</p>
           <p class="why"><b>learn</b> the ORM half day one skipped: declarative models, relationships, sessions that write and commit.</p>
+          <p style="color:var(--muted);font-size:0.86rem">Tables are created by the API's <code>lifespan</code> hook in <code>main.py</code>. The notebook covers add vs flush vs commit, lazy loading with echo on, and the cascading delete.</p>
         </div>
       </div>
 
-      <div class="block">
+      <div class="block done">
         <div class="clock">45 min</div>
         <div>
+          <span class="tag-done">Done</span>
           <h3>Chat endpoints</h3>
           <p><code>backend/api/routers/chats.py</code>: create a chat, list chats newest first, fetch one with its messages, delete one. The title is the first question cut to 60 characters. No LLM call for titles.</p>
+          <p style="color:var(--muted);font-size:0.86rem">New chats start as "New chat". Block 5 renames them on the first question. Self-check <code>python -m backend.api.routers.chats</code> passes: create, list, fetch with messages, delete, messages cascade, then 404.</p>
         </div>
       </div>
 
-      <div class="block loop">
+      <div class="block loop done">
         <div class="clock">75 min</div>
         <div>
           <span class="tag-loop">The hard part</span>
+          <span class="tag-done">Done</span>
           <h3>Follow-up questions</h3>
           <p><code>05-follow-ups.ipynb</code>. <code>SQLAgentState</code> gets <code>history</code>: the last 5 turns, each with its question, final SQL, and status. <code>generate_sql</code> and <code>repair_sql</code> put it in the prompt. Result rows stay out of the prompt, same as today. Test pairs: "top 5 artists by track count" then "only rock", and "invoices in 2021" then "now compare with 2022". The graph's shape doesn't change.</p>
           <p class="why"><b>learn</b> history comes from our messages table, not a LangGraph checkpointer. The table already stores every turn, and a checkpointer would store it twice.</p>
+          <p style="color:var(--muted);font-size:0.86rem"><code>format_history</code> in <code>nodes.py</code> builds the block and hides a failed turn's SQL. Live run on <code>deepseek-v4-flash-0731</code>: "only rock" added a genre join to the artists query, "now compare with 2022" widened the date range and grouped by year, and an unrelated follow-up ignored both. All first try, no repairs.</p>
         </div>
       </div>
 
-      <div class="block">
+      <div class="block done">
         <div class="clock">45 min</div>
         <div>
+          <span class="tag-done">Done</span>
           <h3>Stream into a chat</h3>
           <p><code>POST /api/chats/{id}/messages/stream</code> saves the user message, loads history, runs the same <code>graph.astream</code>, and sends the same per-node SSE events. It saves the assistant message when the graph ends. If the client disconnects, catch the cancellation and save the message with <code>status="stopped"</code>. <code>/api/query</code> stays for scripts and day six.</p>
+          <p style="color:var(--muted);font-size:0.86rem">In <code>routers/chats.py</code>. Saved events drop the schema and rows, since rows already live in <code>Message.rows</code>. An LLM error saves the reply as <code>failed</code> and streams an <code>error</code> event. Checked in-process: two turns saved with history working ("only rock" added the genre join), and a stream closed after one event saved as <code>stopped</code>.</p>
         </div>
       </div>
 
