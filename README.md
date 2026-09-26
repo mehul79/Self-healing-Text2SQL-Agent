@@ -164,10 +164,6 @@ notebooks/    prototypes: SQLAlchemy, asyncio, LangGraph
 
 ## Future Updates
 
-Phases 1-4 of the PRD's development plan (`.claude/PRD — Self-Healing Text-to-SQL Assistant.md`, §34) are done: baseline question-to-result, the LangGraph agent with schema retrieval and a retry loop, self-healing repair, and the security layer (read-only role, SQL parser allowlist, query limits, timeouts). Currently working through **Phase 5 — Evaluation**.
-
-Planned, in roughly the PRD's own order:
-
 - [ ] Track accuracy, repair count, latency, and cost per query
 - [ ] Benchmark against Spider and BIRD
 - [ ] Handle follow-up questions ("only for 2025", "now compare with 2024")
@@ -176,8 +172,6 @@ Planned, in roughly the PRD's own order:
 - [ ] Add tracing for the agent's runs
 - [ ] Add database-side query limits and network isolation
 - [ ] Fine-tune a model on collected query data
-
-Fundamentals come first, so these stay ideas until the phases before them are solid.
 
 ## Credits
 
