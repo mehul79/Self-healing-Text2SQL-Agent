@@ -168,4 +168,4 @@ notebooks/    prototypes: SQLAlchemy, asyncio, LangGraph
 
 ## License
 
-No license chosen yet. Until one is added, all rights are reserved.
+[MIT](LICENSE)
