@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { SqlHighlight } from "@/components/sql-highlight";
-import type { StreamNodeEvent } from "@/hooks/useQueryStream";
+import type { StreamNodeEvent } from "@/lib/chats";
 
 type Attempt = { sql: string; error: string | null };
 

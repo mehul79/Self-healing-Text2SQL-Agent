@@ -22,7 +22,13 @@ export function ChatSidebar() {
   return (
     <Sidebar>
       <SidebarHeader>
-        <Button variant="outline" onClick={newChat} disabled={loading}>
+        {/* already on a blank draft: nothing to reset */}
+        <Button
+          variant="outline"
+          onClick={newChat}
+          disabled={loading || !active}
+          title="New chat (Ctrl+Shift+O, or ⌘⇧O on Mac)"
+        >
           <PlusIcon />
           New chat
         </Button>

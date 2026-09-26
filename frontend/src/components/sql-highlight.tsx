@@ -1,3 +1,8 @@
+"use client";
+
+import { useState } from "react";
+import { CheckIcon, CopyIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 // hand-rolled instead of pulling in a highlighter package — the queries here
@@ -28,9 +33,33 @@ function tokenize(sql: string): Token[] {
   return tokens;
 }
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      className="absolute top-1.5 right-1.5 text-muted-foreground hover:text-foreground"
+      aria-label={copied ? "Copied" : "Copy SQL"}
+      onClick={async () => {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+    >
+      {copied ? <CheckIcon /> : <CopyIcon />}
+    </Button>
+  );
+}
+
 export function SqlHighlight({ sql, className }: { sql: string; className?: string }) {
   return (
-    <pre className={cn("overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs", className)}>
+    <div className="relative">
+      <CopyButton text={sql} />
+      {/* pr-10 keeps long lines from running under the copy button */}
+      <pre className={cn("overflow-x-auto rounded-md bg-muted p-3 pr-10 font-mono text-xs", className)}>
       {tokenize(sql).map((t, i) => {
         if (t.kind === "keyword") {
           return (
@@ -55,6 +84,7 @@ export function SqlHighlight({ sql, className }: { sql: string; className?: stri
         }
         return <span key={i}>{t.text}</span>;
       })}
-    </pre>
+      </pre>
+    </div>
   );
 }

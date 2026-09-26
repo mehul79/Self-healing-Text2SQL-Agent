@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Marker, MarkerContent } from "@/components/ui/marker";
 import { Message, MessageContent } from "@/components/ui/message";
+import { StepTrail } from "@/components/chat-status";
 import { RepairTimeline } from "@/components/repair-timeline";
 import { ResultsTable } from "@/components/results-table";
 import { SqlHighlight } from "@/components/sql-highlight";
@@ -26,6 +27,8 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
   return (
     <Message>
       <MessageContent>
+        {message.events && <StepTrail events={message.events} />}
+
         {message.status === "stopped" ? (
           <Marker>
             <MarkerContent>Stopped before an answer.</MarkerContent>

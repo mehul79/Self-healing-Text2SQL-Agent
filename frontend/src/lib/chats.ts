@@ -1,4 +1,18 @@
-import type { StreamNodeEvent } from "@/hooks/useQueryStream";
+export type NodeName =
+  | "understand"
+  | "retrieve_schema"
+  | "generate_sql"
+  | "validate"
+  | "execute_sql"
+  | "diagnose_error"
+  | "repair_sql"
+  | "respond";
+
+// one SSE event per finished graph node, as sent by /api/chats/{id}/messages/stream
+export type StreamNodeEvent = {
+  node: NodeName;
+  data: Record<string, unknown>;
+};
 
 // mirrors ChatSummary / ChatDetail / MessageOut in backend/api/routers/chats.py
 export type ChatSummary = {
