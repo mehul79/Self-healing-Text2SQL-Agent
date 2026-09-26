@@ -1,4 +1,4 @@
-<title>Four Days to a Self-Healing SQL Agent</title>
+<title>Six Days to a Self-Healing SQL Agent</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 
 <style>
@@ -132,7 +132,7 @@
 
   .arc {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 1px;
     background: var(--rule);
     border: 1px solid var(--rule);
@@ -424,8 +424,8 @@
 <div class="wrap">
 
   <header class="masthead">
-    <p class="eyebrow">Build plan · 4 days</p>
-    <h1>Four Days to a Self-Healing SQL Agent</h1>
+    <p class="eyebrow">Build plan · 6 days</p>
+    <h1>Six Days to a Self-Healing SQL Agent</h1>
     <p class="standfirst">
       A day-by-day route from an empty folder to a working agent that writes SQL, runs it against a
       read-only database, notices when it was wrong, and repairs itself — with a React front end that
@@ -461,6 +461,16 @@
       <span class="n">DAY 04</span>
       <span class="t">The glass</span>
       <span class="d">React client that renders each node as it fires, repairs included.</span>
+    </div>
+    <div class="arc-cell">
+      <span class="n">DAY 05</span>
+      <span class="t">The conversation</span>
+      <span class="d">Saved chats, follow-up questions, and a live status line.</span>
+    </div>
+    <div class="arc-cell">
+      <span class="n">DAY 06</span>
+      <span class="t">The scoreboard</span>
+      <span class="d">Spider dev set, scored by the official script.</span>
     </div>
   </div>
 
@@ -542,8 +552,8 @@
         </div>
       </div>
 
-      <div class=”gate”>
-        <span class=”lbl”>End of day 1 — checkpoint</span>
+      <div class="gate">
+        <span class="lbl">End of day 1 — checkpoint</span>
         <p><strong>✓ Complete.</strong> A real question (“How many tracks are in the database?”) returns real rows through the API. Next: ask three harder ones — “total sales revenue by genre”, “which employee's customers spent the most”, “top 5 artists by number of tracks sold” — and write down which ones failed and why; that list is tomorrow's specification.</p>
       </div>
     </div>
@@ -799,10 +809,180 @@
     </div>
   </section>
 
+  <!-- ================= DAY 5 ================= -->
+  <section class="day">
+    <div class="rail">
+      <div class="day-num">05</div>
+      <div class="day-theme">The conversation: saved chats and follow-ups</div>
+      <p class="day-note">The graph gets one new input, its history. The rest of the day is storage and UI.</p>
+      <div class="rail-label">Learning goals</div>
+      <div class="goals">
+        <span class="goal"><b>06</b> SQLAlchemy ORM, writes</span>
+        <span class="goal"><b>05</b> what goes in state</span>
+        <span class="goal"><b>F1</b> streaming clients</span>
+        <span class="goal"><b>F2</b> custom components</span>
+      </div>
+      <div class="rail-label" style="margin-top:18px">No chat library</div>
+      <p class="day-note">shadcn's chat components only draw. Our SSE hook and zustand already hold the state, so assistant-ui and the AI SDK would add a runtime we don't need.</p>
+      <div class="rail-label" style="margin-top:18px">SSE stays</div>
+      <p class="day-note">One question, one stream of events. ChatGPT and Claude.ai stream typed chat the same way.</p>
+    </div>
+
+    <div class="blocks">
+      <div class="block">
+        <div class="clock">30 min</div>
+        <div>
+          <h3>Two databases, two roles</h3>
+          <p>Chats live in their own Postgres database, <code>text2sql_app</code>, written by an <code>app_writer</code> role that can't see Chinook. The agent's engine stays read-only and can't see the chats. New connection vars go in <code>.env.example</code>.</p>
+          <p class="why"><b>learn</b> the code that saves chats and the code that runs model-written SQL never share credentials.</p>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="clock">60 min</div>
+        <div>
+          <h3>Chat tables with the ORM</h3>
+          <p><code>04-chat-store.ipynb</code>, then <code>backend/chats/models.py</code>. <code>Chat</code>: id, title, timestamps. <code>Message</code>: chat_id, role, content, sql, rows, status, attempts, events. Rows and node events are JSON columns, so a reopened chat can redraw its repair timeline. <code>create_all</code> on startup, no Alembic yet.</p>
+          <p class="why"><b>learn</b> the ORM half day one skipped: declarative models, relationships, sessions that write and commit.</p>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="clock">45 min</div>
+        <div>
+          <h3>Chat endpoints</h3>
+          <p><code>backend/api/routers/chats.py</code>: create a chat, list chats newest first, fetch one with its messages, delete one. The title is the first question cut to 60 characters. No LLM call for titles.</p>
+        </div>
+      </div>
+
+      <div class="block loop">
+        <div class="clock">75 min</div>
+        <div>
+          <span class="tag-loop">The hard part</span>
+          <h3>Follow-up questions</h3>
+          <p><code>05-follow-ups.ipynb</code>. <code>SQLAgentState</code> gets <code>history</code>: the last 5 turns, each with its question, final SQL, and status. <code>generate_sql</code> and <code>repair_sql</code> put it in the prompt. Result rows stay out of the prompt, same as today. Test pairs: "top 5 artists by track count" then "only rock", and "invoices in 2021" then "now compare with 2022". The graph's shape doesn't change.</p>
+          <p class="why"><b>learn</b> history comes from our messages table, not a LangGraph checkpointer. The table already stores every turn, and a checkpointer would store it twice.</p>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="clock">45 min</div>
+        <div>
+          <h3>Stream into a chat</h3>
+          <p><code>POST /api/chats/{id}/messages/stream</code> saves the user message, loads history, runs the same <code>graph.astream</code>, and sends the same per-node SSE events. It saves the assistant message when the graph ends. If the client disconnects, catch the cancellation and save the message with <code>status="stopped"</code>. <code>/api/query</code> stays for scripts and day six.</p>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="clock">60 min</div>
+        <div>
+          <h3>The chat page</h3>
+          <p><code>npx shadcn add message-scroller message bubble marker sidebar</code>. Chat list in the sidebar, <code>MessageScroller</code> of <code>Message</code> + <code>Bubble</code> rows, input pinned at the bottom. The assistant bubble holds the answer, <code>SqlHighlight</code>, the results table, and <code>RepairTimeline</code> when there was a repair. The hand-built components move in unchanged.</p>
+          <p class="why"><b>learn</b> the library handles scrolling. The repair timeline is still ours.</p>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="clock">60 min</div>
+        <div>
+          <h3>Chat store and the live status line</h3>
+          <p><code>store/chats.ts</code> in zustand holds the chat list, the open chat, and its messages. <code>useQueryStream</code> takes a chat id and adds events to the pending reply. One <code>Marker</code> with <code>shimmer</code> shows the node that's running: "Reading the database schema", "Writing the SQL query", "Checking the query is safe", "Running the query", "Working out what went wrong", "Fixing the query". The Stop button calls the <code>AbortController</code> the hook already has. <code>QueryPanel</code> and <code>store/query.ts</code> get deleted once the chat page works.</p>
+        </div>
+      </div>
+
+      <div class="gate">
+        <span class="lbl">End of day 5 — checkpoint</span>
+        <p>Start a chat, ask a question, then ask a follow-up that only makes sense after the first answer. The status line ticks through each node, repairs included. Reload the page and switch chats, and everything is still there. The security tests and Chinook self-checks still pass.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= DAY 6 ================= -->
+  <section class="day">
+    <div class="rail">
+      <div class="day-num">06</div>
+      <div class="day-theme">The scoreboard: Spider, run the official way</div>
+      <p class="day-note">The agent stays as it is. Today measures it on questions we didn't write, scored by a script we didn't write.</p>
+      <div class="rail-label">Learning goals</div>
+      <div class="goals">
+        <span class="goal"><b>04</b> bounded concurrency</span>
+        <span class="goal"><b>05</b> runtime config vs state</span>
+        <span class="goal"><b>06</b> engine per database</span>
+      </div>
+      <div class="rail-label" style="margin-top:18px">Why SQLite</div>
+      <p class="day-note">Spider's gold SQL is SQLite SQL and its scorer runs on SQLite. Porting to Postgres would change the test, and our numbers would no longer compare to anyone else's.</p>
+    </div>
+
+    <div class="blocks">
+      <div class="block">
+        <div class="clock">30 min</div>
+        <div>
+          <h3>Get Spider onto disk</h3>
+          <p>The dev set is 1,034 questions over 20 SQLite databases. Unzip it into <code>data/spider/</code>, keep it out of git, and read three examples by hand: question, gold SQL, <code>db_id</code>.</p>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="clock">60 min</div>
+        <div>
+          <h3>Point the graph at any database</h3>
+          <p>Nodes stop importing the global engine. The engine comes in through LangGraph's <code>config</code>, one per <code>db_id</code>, cached for the run. SQLite files open with <code>mode=ro</code>, so the read-only rule still holds.</p>
+          <p class="why"><b>learn</b> state is what the graph reasons about. Config is what it runs on. An engine is the second kind.</p>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="clock">45 min</div>
+        <div>
+          <h3>Make the dialect a parameter</h3>
+          <p><code>sql_guard</code> takes a dialect. The prompt tells the model which one to write. <code>statement_timeout</code> only runs on Postgres, and the wall-clock limit covers SQLite. Chinook's self-checks must still pass.</p>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="clock">60 min</div>
+        <div>
+          <h3>Twenty questions in a notebook</h3>
+          <p><code>06-spider-eval.ipynb</code>: run 20 dev questions through the graph, write one predicted SQL per line, and read every failure. Expect the first bugs in our code, not the model.</p>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="clock">45 min</div>
+        <div>
+          <h3>Score it with the official script</h3>
+          <p>Feed the predictions file to Spider's test-suite evaluator in execution mode. We don't grade ourselves.</p>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="clock">60 min</div>
+        <div>
+          <h3>Port the harness</h3>
+          <p><code>backend/eval/run_spider.py</code>. An <code>asyncio.Semaphore</code> caps parallel questions so we stay under the provider's rate limit. One JSONL line per question with attempts, status, error category, and latency. Runnable check: a 5-question slice.</p>
+        </div>
+      </div>
+
+      <div class="block loop">
+        <div class="clock">45 min</div>
+        <div>
+          <span class="tag-loop">The number that matters</span>
+          <h3>Full dev set, twice</h3>
+          <p>Run once with repairs on, and once with <code>MAX_REPAIR_ATTEMPTS = 0</code>. The gap between the two is what self-healing is worth, measured on 1,034 questions instead of five.</p>
+        </div>
+      </div>
+
+      <div class="gate">
+        <span class="lbl">End of day 6 — checkpoint</span>
+        <p>Two execution-accuracy numbers from the official scorer, with and without repair, plus first-attempt accuracy, recovery rate, and cost per question. BIRD later reuses the same harness with a different loader.</p>
+      </div>
+    </div>
+  </section>
+
   <!-- ================= CLOSING ================= -->
   <div class="closing">
     <h2>Done, and deliberately not done</h2>
-    <p class="sub">Four days buys a system that demonstrates its own thesis. It does not buy a platform — and the cut list matters as much as the build list.</p>
+    <p class="sub">Four days bought a system that demonstrates its own thesis. It does not buy a platform — and the cut list matters as much as the build list.</p>
 
     <div class="two">
       <div>
@@ -821,9 +1001,9 @@
         <div class="rail-label">Cut, and when to add it</div>
         <ul class="crit cut">
           <li><span class="mk">→</span><span>pgvector schema retrieval — when the schema stops fitting in a prompt</span></li>
-          <li><span class="mk">→</span><span>Multi-turn conversation and checkpointing — day five, once one turn is solid</span></li>
+          <li><span class="mk">→</span><span>Multi-turn conversation — now day five, history from our own table instead of a checkpointer</span></li>
           <li><span class="mk">→</span><span>LangSmith and OpenTelemetry — when a failure gets hard to reproduce</span></li>
-          <li><span class="mk">→</span><span>Spider / BIRD benchmarks — after five hand-written cases stop finding bugs</span></li>
+          <li><span class="mk">→</span><span>Spider / BIRD benchmarks — Spider is now day six, BIRD after it</span></li>
           <li><span class="mk">→</span><span>Charts and visualisation — after the table is genuinely not enough</span></li>
           <li><span class="mk">→</span><span>Docker, second database engine, fine-tuning — not this week</span></li>
         </ul>
@@ -837,7 +1017,7 @@
       reliable, and only two days of this plan actually prove that.
     </p>
 
-    <footer>Companion to PRD v1.0 · phases 1–4 of 8 · learning goals 1–6 plus frontend</footer>
+    <footer>Companion to PRD v1.0 · phases 1–5 of 8 · learning goals 1–6 plus frontend</footer>
   </div>
 
 </div>
