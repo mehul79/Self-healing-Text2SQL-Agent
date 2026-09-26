@@ -16,6 +16,7 @@ dependencies = [
     "pydantic-settings>=2.15.0",
     "pygraphviz>=2.0.1",
     "python-dotenv>=1.2.3",
+    "requests>=2.34.2",
     "sqlalchemy>=2.0.52",
     "sqlglot>=30.18.0",
     "uvicorn[standard]>=0.52.4",
