@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,39 +31,46 @@ function StreamPanel() {
   const stream = useQueryStream();
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-3">
-      <div className="flex flex-wrap gap-3 font-mono text-xs">
-        <StepTick label="schema retrieved" done={stream.steps.schemaRetrieved} />
-        <StepTick label="sql generated" done={stream.steps.sqlGenerated} />
-        <StepTick label="validated" done={stream.steps.validated} />
-        <StepTick label="executed" done={stream.steps.executed} />
+    <details open className="group rounded-md border p-3">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+        <div className="flex flex-wrap gap-3 font-mono text-xs">
+          <StepTick label="schema retrieved" done={stream.steps.schemaRetrieved} />
+          <StepTick label="sql generated" done={stream.steps.sqlGenerated} />
+          <StepTick label="validated" done={stream.steps.validated} />
+          <StepTick label="executed" done={stream.steps.executed} />
+        </div>
+        <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+      </summary>
+
+      <div className="mt-3 flex flex-col gap-3">
+        {stream.status === "error" && (
+          <p className="text-sm text-destructive">{stream.errorMessage}</p>
+        )}
+
+        {stream.sql && <SqlHighlight sql={stream.sql} />}
+
+        {stream.attempts > 0 && (
+          <Badge variant="outline" className="w-fit">
+            {stream.attempts} repair{stream.attempts === 1 ? "" : "s"}
+          </Badge>
+        )}
+
+        {stream.answer && <TypewriterText text={stream.answer} className="text-sm" />}
+
+        <RepairTimeline events={stream.events} />
+
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="w-fit"
+          disabled={stream.status === "streaming"}
+          onClick={() => stream.start(BREAK_ON_PURPOSE_QUESTION)}
+        >
+          {stream.status === "streaming" ? "Streaming..." : "Try the stream (forces a repair)"}
+        </Button>
       </div>
-
-      {stream.status === "error" && <p className="text-sm text-destructive">{stream.errorMessage}</p>}
-
-      {stream.sql && <SqlHighlight sql={stream.sql} />}
-
-      {stream.attempts > 0 && (
-        <Badge variant="outline" className="w-fit">
-          {stream.attempts} repair{stream.attempts === 1 ? "" : "s"}
-        </Badge>
-      )}
-
-      {stream.answer && <TypewriterText text={stream.answer} className="text-sm" />}
-
-      <RepairTimeline events={stream.events} />
-
-      <Button
-        type="button"
-        variant="secondary"
-        size="sm"
-        className="w-fit"
-        disabled={stream.status === "streaming"}
-        onClick={() => stream.start(BREAK_ON_PURPOSE_QUESTION)}
-      >
-        {stream.status === "streaming" ? "Streaming..." : "Try the stream (forces a repair)"}
-      </Button>
-    </div>
+    </details>
   );
 }
 
