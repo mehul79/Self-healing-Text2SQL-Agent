@@ -5,9 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useQueryStream } from "@/hooks/useQueryStream";
 import { RepairTimeline } from "@/components/repair-timeline";
+import { ResultsTable } from "@/components/results-table";
 import { SqlHighlight } from "@/components/sql-highlight";
 import { TypewriterText } from "@/components/typewriter-text";
 import { useQueryStore } from "@/store/query";
@@ -77,8 +77,6 @@ function StreamPanel() {
 export function QueryPanel() {
   const { question, result, loading, error, setQuestion, runQuery } = useQueryStore();
 
-  const columns = result?.rows.length ? Object.keys(result.rows[0]) : [];
-
   return (
     <div className="flex flex-col gap-4">
       <form
@@ -121,30 +119,7 @@ export function QueryPanel() {
           <CardContent className="flex flex-col gap-4">
             <SqlHighlight sql={result.sql} />
 
-            {result.rows.length > 0 && (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      {columns.map((col) => (
-                        <TableHead key={col} className="font-mono">
-                          {col}
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {result.rows.map((row, i) => (
-                      <TableRow key={i}>
-                        {columns.map((col) => (
-                          <TableCell key={col}>{String(row[col] ?? "—")}</TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
+            <ResultsTable rows={result.rows} />
           </CardContent>
         </Card>
       )}
