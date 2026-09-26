@@ -87,7 +87,19 @@ Requirements: Python 3.14, [uv](https://docs.astral.sh/uv/), Docker, Node.js.
    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO readonly_user;
    ```
 
-6. Install frontend dependencies:
+6. Create the chat store: a separate database, owned by a role that can write there and can't connect to Chinook. Run these one at a time in `psql` as the owner user (`CREATE DATABASE` can't run inside a transaction):
+
+   ```sql
+   CREATE ROLE app_writer WITH LOGIN PASSWORD '<your_app_writer_password>';
+   CREATE DATABASE text2sql_app OWNER app_writer;
+   REVOKE CONNECT ON DATABASE text2sql_app FROM PUBLIC;
+   REVOKE CONNECT ON DATABASE <POSTGRES_DB> FROM PUBLIC;
+   GRANT CONNECT ON DATABASE <POSTGRES_DB> TO readonly_user;
+   ```
+
+   The API creates the chat tables on startup.
+
+7. Install frontend dependencies:
 
    ```bash
    cd frontend
@@ -112,6 +124,11 @@ Interactive docs are at http://127.0.0.1:8000/docs.
 | `POST` | `/api/query` | Run a question through the graph and return the result |
 | `GET` | `/api/query/{query_id}` | Fetch a previous result |
 | `POST` | `/api/query/stream` | Same as `/api/query`, streamed step by step as SSE |
+| `POST` | `/api/chats` | Start a new chat |
+| `GET` | `/api/chats` | List chats, most recently updated first |
+| `GET` | `/api/chats/{chat_id}` | Fetch a chat with its messages |
+| `DELETE` | `/api/chats/{chat_id}` | Delete a chat and its messages |
+| `POST` | `/api/chats/{chat_id}/messages/stream` | Ask a question in a chat, with earlier turns as context. Streams SSE like `/api/query/stream` and saves both messages |
 
 Example:
 
@@ -144,16 +161,18 @@ Each ported module has a runnable self-check. Run them from the repo root:
 uv run python -m backend.security.test_security   # SQL allowlist: stacked statements, DELETE in a CTE, etc.
 uv run python -m backend.security.sql_guard       # validator self-check
 uv run python -m backend.database.connection      # read-only DB connection
+uv run python -m backend.api.routers.chats        # chat store: create, list, fetch, delete, cascade
 uv run python -m backend.graph.build              # end-to-end graph run, including a forced repair
 ```
 
-The security tests need no database or LLM. The last two need Postgres running, and the graph run also needs a working LLM provider.
+The security tests need no database or LLM. The rest need Postgres running, and the graph run also needs a working LLM provider.
 
 ## Project Layout
 
 ```
 backend/
-  api/        FastAPI app and routers (schema, models, query)
+  api/        FastAPI app and routers (schema, models, query, chats)
+  chats/      chat store: ORM models and its own writable engine
   database/   read-only engine, sessions, query execution
   graph/      LangGraph state, nodes, and graph wiring
   llm/        provider-agnostic LLM client
