@@ -36,16 +36,8 @@ The agent is a LangGraph state machine. Each node reads and updates a shared typ
 
 ![LangGraph agent graph](backend/graph/graph.png)
 
-1. **understand** and **retrieve_schema** load the question and the live database schema.
-2. **generate_sql** asks the LLM for a query, using structured output (`sql`, `tables_used`, `reasoning`).
-3. **validate** parses the SQL with `sqlglot` and rejects anything that isn't a single `SELECT` or `WITH ... SELECT`, plus unknown tables and columns.
-4. **execute_sql** runs the query as a read-only Postgres role, with a 5s statement timeout and a 1000-row cap.
-5. If validation or execution fails, **diagnose_error** classifies the error and **repair_sql** asks the LLM to fix it, then the query goes back through validation.
-6. **respond** returns the result, or gives up after 3 repair attempts.
-
 ## Features
 
-- Natural language to PostgreSQL over the [Chinook](https://github.com/lerocha/chinook-database) sample database
 - Self-repair loop driven by real validation and database errors
 - SQL allowlisting in application code, tested independently of any prompt
 - Read-only database role, even in development
@@ -172,25 +164,30 @@ The security tests need no database or LLM. The rest need Postgres running, and 
 
 ## Benchmark
 
-Execution accuracy on the [Spider](https://yale-lily.github.io/spider) dev set (1,034 questions, 20 SQLite databases), scored by Spider's official [test-suite evaluator](https://github.com/taoyds/test-suite-sql-eval). Model: `deepseek/deepseek-v4-flash-0731` via OpenRouter, `TEMPERATURE=0.2`.
+Execution accuracy on the [Spider](https://yale-lily.github.io/spider) dev set (1,034 questions, 20 SQLite databases), scored by Spider's official [test-suite evaluator](https://github.com/taoyds/test-suite-sql-eval). Both models via OpenRouter, `TEMPERATURE=0.2`.
 
-| Setup | Easy (248) | Medium (446) | Hard (174) | Extra (166) | **All** |
+| Model / setup | Easy (248) | Medium (446) | Hard (174) | Extra (166) | **All** |
 | --- | --- | --- | --- | --- | --- |
-| With repair loop | 87.9 | 78.7 | 71.3 | 55.4 | **75.9** |
-| Same run, first attempts only | 87.9 | 78.7 | 66.7 | 54.8 | 75.0 |
-| Separate run, repair off | 88.3 | 80.3 | 68.4 | 51.2 | 75.5 |
+| `deepseek-v4-flash-0731`, with repair loop | 87.9 | 78.7 | 71.3 | 55.4 | **75.9** |
+| `deepseek-v4-flash-0731`, same run, first attempts only | 87.9 | 78.7 | 66.7 | 54.8 | 75.0 |
+| `llama-3.1-8b-instruct`, with repair loop | 85.9 | 71.7 | 43.7 | 38.0 | **65.0** |
+| `llama-3.1-8b-instruct`, same run, first attempts only | 83.9 | 69.5 | 43.1 | 37.3 | 63.3 |
 
-- On the same generations, the repair loop adds **+0.9 points**, all of it on hard and extra questions. 15 questions needed a repair and all 15 recovered.
-- 12 of those 15 repairs were the validator rejecting read-only `INTERSECT` / `UNION` / `EXCEPT`. That false positive is now fixed, so re-running would show repair's gain on real model errors only. These scores are from before the fix.
+"First attempts only" scores the same run with every repair removed, so the gap between the two rows of a model is what the repair loop is worth.
+
+- **The repair loop helps a small model more, but doesn't close the gap.** It adds +0.9 points for DeepSeek and +1.7 for Llama 3.1 8B. Llama with repair still trails DeepSeek without it by about 10 points, mostly on hard and extra questions.
+- **Repair fixes queries that fail, not queries that are wrong.** Llama needed 96 repairs (DeepSeek 15), 88 of them unknown columns. 50 recovered to SQL that runs, but only about 18 of those returned the right rows; 45 still failed after 3 repairs.
+- **DeepSeek's 12 of 15 repairs were our validator rejecting read-only `INTERSECT` / `UNION` / `EXCEPT`.** That false positive is fixed; the DeepSeek scores predate the fix, the Llama scores don't.
 - A question the agent gives up on is scored as no answer, since the app returns no rows for it.
-- Both runs cost $0.35 in total, with a median of about 5.5 seconds per question.
+- Cost for both runs: DeepSeek $0.35 (median 5.5s per question), Llama $0.11 (1.3s).
 
-The benchmark runs the real graph's nodes against Spider's SQLite files (`backend/eval/`) and doesn't change the app. To reproduce it, unzip Spider into `data/spider/` and clone the evaluator into `data/test-suite-sql-eval/`:
+The benchmark runs the real graph's nodes against Spider's SQLite files (`backend/eval/`) and doesn't change the app. To reproduce it, unzip Spider into `data/spider/` and clone the evaluator into `data/test-suite-sql-eval/`. The model comes from `MODEL_NAME`, so another one can be benchmarked per command without editing `.env`:
 
 ```bash
 uv run python -m backend.eval.run_spider --oracle          # free: gold SQL as predictions, should score 100%
-uv run python -m backend.eval.run_spider                   # repair loop on
+uv run python -m backend.eval.run_spider                   # repair loop on; also scores first attempts
 uv run python -m backend.eval.run_spider --max-repairs 0   # repair loop off
+MODEL_NAME=meta-llama/llama-3.1-8b-instruct uv run python -m backend.eval.run_spider   # another model
 ```
 
 ## Project Layout
@@ -223,7 +220,7 @@ A new chat. Saved chats are in the sidebar, and the schema browser opens from th
 - [x] Handle follow-up questions ("only for 2025", "now compare with 2024")
 - [ ] Track accuracy, repair count, latency, and cost per query
 - [x] Benchmark against Spider
-- [ ] Benchmark a smaller model, to see how much the repair loop closes the gap
+- [x] Benchmark a smaller model, to see how much the repair loop closes the gap
 - [ ] Benchmark against BIRD
 - [ ] Retrieve schema with embeddings for schemas too big to send whole
 - [ ] Add a glossary mapping business terms to real tables and columns
