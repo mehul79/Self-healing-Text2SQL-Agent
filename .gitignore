@@ -5,3 +5,4 @@ __pycache__/
 seed/
 data/
 spider_data.zip
+.claude/diagrams/*.visual-check.*

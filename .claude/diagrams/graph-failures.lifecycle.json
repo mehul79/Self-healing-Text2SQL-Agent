@@ -1,0 +1,248 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Graph Run Failure Paths",
+    "output": ".claude/diagrams/graph-failures-lifecycle.html",
+    "viewBox": [
+      1030,
+      660
+    ],
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "Graph nodes"
+    },
+    {
+      "id": "repair",
+      "label": "Repair loop"
+    },
+    {
+      "id": "terminal",
+      "label": "Interruptions"
+    }
+  ],
+  "states": [
+    {
+      "id": "question",
+      "type": "start",
+      "label": "Question in",
+      "sublabel": "understand + schema",
+      "lane": "main",
+      "col": 0,
+      "step": "01",
+      "tag": "entry"
+    },
+    {
+      "id": "generate",
+      "type": "active",
+      "label": "Generate SQL",
+      "sublabel": "LLM tool call",
+      "lane": "main",
+      "col": 1,
+      "step": "02",
+      "tag": "llm"
+    },
+    {
+      "id": "validate",
+      "type": "decision",
+      "label": "Validate",
+      "sublabel": "sql_guard",
+      "lane": "main",
+      "col": 2,
+      "step": "03",
+      "tag": "check"
+    },
+    {
+      "id": "execute",
+      "type": "active",
+      "label": "Execute",
+      "sublabel": "read-only, 5s",
+      "lane": "main",
+      "col": 3,
+      "step": "04",
+      "tag": "db"
+    },
+    {
+      "id": "answer",
+      "type": "success",
+      "label": "Answer",
+      "sublabel": "saved as ok",
+      "lane": "main",
+      "col": 4,
+      "step": "05",
+      "tag": "done"
+    },
+    {
+      "id": "repair",
+      "type": "failure",
+      "label": "Diagnose + repair",
+      "sublabel": "hint, then LLM rewrite",
+      "lane": "repair",
+      "col": 0,
+      "tag": "recoverable"
+    },
+    {
+      "id": "gaveup",
+      "type": "failure",
+      "label": "Gave up",
+      "sublabel": "saved as failed",
+      "lane": "repair",
+      "col": 2,
+      "tag": "terminal"
+    },
+    {
+      "id": "stopped",
+      "type": "failure",
+      "label": "Stopped",
+      "sublabel": "saved as stopped",
+      "lane": "terminal",
+      "col": 0,
+      "tag": "terminal"
+    },
+    {
+      "id": "provider",
+      "type": "failure",
+      "label": "Provider error",
+      "sublabel": "saved as failed",
+      "lane": "terminal",
+      "col": 1,
+      "tag": "terminal"
+    },
+    {
+      "id": "cut",
+      "type": "failure",
+      "label": "Stream cut",
+      "sublabel": "reply may be lost",
+      "lane": "terminal",
+      "col": 2,
+      "tag": "terminal"
+    }
+  ],
+  "transitions": [
+    {
+      "id": "rejected",
+      "from": "validate",
+      "to": "repair",
+      "label": "rejected",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [
+        402,
+        212
+      ]
+    },
+    {
+      "id": "db-error",
+      "from": "execute",
+      "to": "repair",
+      "label": "DB error / timeout",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "retry",
+      "from": "repair",
+      "to": "validate",
+      "label": "retry",
+      "variant": "emphasis",
+      "fromSide": "left",
+      "toSide": "top",
+      "via": [
+        [
+          325,
+          307
+        ],
+        [
+          325,
+          105
+        ],
+        [
+          402,
+          105
+        ]
+      ]
+    },
+    {
+      "id": "give-up",
+      "from": "repair",
+      "to": "gaveup",
+      "label": "3 repairs used",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "left",
+      "route": "straight"
+    },
+    {
+      "id": "stop",
+      "from": "generate",
+      "to": "stopped",
+      "label": "user stops",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "labelAt": [
+        296,
+        452
+      ]
+    },
+    {
+      "id": "llm-fails",
+      "from": "generate",
+      "to": "provider",
+      "label": "LLM call fails",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "route": "bottom-channel"
+    },
+    {
+      "id": "save-fails",
+      "from": "answer",
+      "to": "cut",
+      "label": "save or network fails",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "right",
+      "route": "right-channel",
+      "labelAt": [
+        805,
+        350
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Answer and repair",
+      "items": [
+        "Answer: step trail, SQL, rows table",
+        "Repair: 'Fixing the query', repair badge",
+        "Repair timeline shows each attempt"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Gave up",
+      "items": [
+        "3 repairs used: straight to respond",
+        "Red bubble with the last error",
+        "Saved as failed, with node events"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Interruptions",
+      "items": [
+        "Stop: 'Stopped before an answer.'",
+        "Provider error: shown, saved as failed",
+        "Stream cut: question kept, reply if saved"
+      ]
+    }
+  ]
+}

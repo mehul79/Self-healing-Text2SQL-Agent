@@ -1,0 +1,254 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "One Chat Question, End to End",
+    "output": ".claude/diagrams/chat-request-sequence.html",
+    "viewBox": [
+      1000,
+      580
+    ],
+    "column_fit": "spread",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    {
+      "id": "user",
+      "type": "external",
+      "label": "User",
+      "sublabel": "browser"
+    },
+    {
+      "id": "ui",
+      "type": "frontend",
+      "label": "Chat UI",
+      "sublabel": "page + chats store"
+    },
+    {
+      "id": "proxy",
+      "type": "frontend",
+      "label": "Next proxy",
+      "sublabel": "/api rewrite"
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "FastAPI",
+      "sublabel": "routers/chats.py"
+    },
+    {
+      "id": "appdb",
+      "type": "database",
+      "label": "Chat store",
+      "sublabel": "text2sql_app"
+    },
+    {
+      "id": "graph",
+      "type": "backend",
+      "label": "LangGraph",
+      "sublabel": "8 nodes, repair loop"
+    },
+    {
+      "id": "llm",
+      "type": "external",
+      "label": "LLM",
+      "sublabel": "OpenRouter"
+    },
+    {
+      "id": "chinook",
+      "type": "database",
+      "label": "Chinook",
+      "sublabel": "readonly_user"
+    }
+  ],
+  "segments": [
+    {
+      "from": 150,
+      "to": 246,
+      "label": "Send"
+    },
+    {
+      "from": 248,
+      "to": 406,
+      "label": "Agent run"
+    },
+    {
+      "from": 408,
+      "to": 504,
+      "label": "Stream, save, render"
+    }
+  ],
+  "messages": [
+    {
+      "id": "ask",
+      "from": "user",
+      "to": "ui",
+      "y": 160,
+      "label": "type question, Enter",
+      "variant": "default"
+    },
+    {
+      "id": "post-stream",
+      "from": "ui",
+      "to": "proxy",
+      "y": 184,
+      "label": "POST /api/chats/{id}/messages/stream",
+      "variant": "emphasis",
+      "note": "A blank draft first creates the chat with POST /api/chats"
+    },
+    {
+      "id": "rewrite",
+      "from": "proxy",
+      "to": "api",
+      "y": 208,
+      "label": "forward, unbuffered",
+      "variant": "default"
+    },
+    {
+      "id": "save-question",
+      "from": "api",
+      "to": "appdb",
+      "y": 232,
+      "label": "load history, save question",
+      "variant": "default"
+    },
+    {
+      "id": "run-graph",
+      "from": "api",
+      "to": "graph",
+      "y": 260,
+      "label": "astream(question, last 5 turns)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "reflect",
+      "from": "graph",
+      "to": "chinook",
+      "y": 284,
+      "label": "reflect schema",
+      "variant": "default"
+    },
+    {
+      "id": "generate",
+      "from": "graph",
+      "to": "llm",
+      "y": 312,
+      "label": "generate_sql tool call",
+      "variant": "emphasis"
+    },
+    {
+      "id": "sql-back",
+      "from": "llm",
+      "to": "graph",
+      "y": 340,
+      "label": "sql, tables, reasoning",
+      "variant": "return"
+    },
+    {
+      "id": "execute",
+      "from": "graph",
+      "to": "chinook",
+      "y": 368,
+      "label": "run SQL, 5s timeout",
+      "variant": "security",
+      "note": "Only after sql_guard passes: one SELECT, known tables and columns"
+    },
+    {
+      "id": "rows",
+      "from": "chinook",
+      "to": "graph",
+      "y": 396,
+      "label": "up to 1,000 rows",
+      "variant": "return"
+    },
+    {
+      "id": "sse",
+      "from": "api",
+      "to": "ui",
+      "y": 420,
+      "label": "SSE per node, via proxy",
+      "variant": "return",
+      "note": "Cache-Control: no-transform, so the proxy streams each event as it happens; the status line names the next step"
+    },
+    {
+      "id": "save-reply",
+      "from": "api",
+      "to": "appdb",
+      "y": 444,
+      "label": "save reply: sql, rows, events",
+      "variant": "default"
+    },
+    {
+      "id": "reload",
+      "from": "ui",
+      "to": "api",
+      "y": 468,
+      "label": "on [DONE]: GET chat + list",
+      "variant": "dashed"
+    },
+    {
+      "id": "render",
+      "from": "ui",
+      "to": "user",
+      "y": 492,
+      "label": "answer, SQL, rows, step trail",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "ui",
+      "from": 178,
+      "to": 498,
+      "type": "frontend"
+    },
+    {
+      "participant": "proxy",
+      "from": 184,
+      "to": 214,
+      "type": "frontend"
+    },
+    {
+      "participant": "api",
+      "from": 208,
+      "to": 474,
+      "type": "backend"
+    },
+    {
+      "participant": "appdb",
+      "from": 227,
+      "to": 238,
+      "type": "database"
+    },
+    {
+      "participant": "graph",
+      "from": 260,
+      "to": 402,
+      "type": "backend"
+    },
+    {
+      "participant": "chinook",
+      "from": 279,
+      "to": 290,
+      "type": "database"
+    },
+    {
+      "participant": "llm",
+      "from": 312,
+      "to": 346,
+      "type": "external"
+    },
+    {
+      "participant": "chinook",
+      "from": 363,
+      "to": 402,
+      "type": "database"
+    },
+    {
+      "participant": "appdb",
+      "from": 439,
+      "to": 450,
+      "type": "database"
+    }
+  ]
+}
