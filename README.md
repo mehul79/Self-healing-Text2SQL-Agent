@@ -212,7 +212,8 @@ A new chat. Saved chats are in the sidebar, and the schema browser opens from th
 
 ## Credits
 
-- [Chinook sample database](https://github.com/lerocha/chinook-database) by Luis Rocha
+- [Chinook sample database](https://github.com/lerocha/chinook-database)
+- [Spider Dataset](https://yale-lily.github.io/spider)
 - Built with [FastAPI](https://fastapi.tiangolo.com/), [LangGraph](https://langchain-ai.github.io/langgraph/), [SQLAlchemy](https://www.sqlalchemy.org/), [sqlglot](https://github.com/tobymao/sqlglot), [Next.js](https://nextjs.org/), and [shadcn/ui](https://ui.shadcn.com/)
 
 ## License
