@@ -8,7 +8,7 @@ I built this to learn the stack behind LLM agents by building one. Most text-to-
 
 What I learned building it:
 
-- Python packaging: `__init__.py`, absolute imports, and why `python -m backend.x` works where `python backend/x.py` breaks
+- Python packaging: `__init__.py`, absolute imports.
 - FastAPI: Pydantic request/response models, routers, `Depends`, streaming responses
 - Swapping LLM providers through env vars without touching code
 - asyncio: what actually runs concurrently, and keeping sync DB calls from blocking the event loop
@@ -175,25 +175,15 @@ The security tests need no database or LLM. The rest need Postgres running, and 
 Execution accuracy on the [Spider](https://yale-lily.github.io/spider) dev set (1,034 questions, 20 SQLite databases), scored by Spider's official [test-suite evaluator](https://github.com/taoyds/test-suite-sql-eval). Both models via OpenRouter, `TEMPERATURE=0.2`.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/benchmark-dark.png">
+  <source srcset="docs/benchmark-dark.png">
   <img alt="Spider dev execution accuracy by difficulty for deepseek-v4-flash-0731 and llama-3.1-8b-instruct, with the points added by the repair loop hatched" src="docs/benchmark-light.png">
 </picture>
-
-Each solid bar scores the first attempts of a run, with every repair removed; the hatched cap on top is what the repair loop added in that same run.
 
 - **The repair loop helps a small model more, but doesn't close the gap.** It adds +0.9 points for DeepSeek and +1.7 for Llama 3.1 8B. Llama with repair still trails DeepSeek without it by about 10 points, mostly on hard and extra questions.
 - **Repair fixes queries that fail, not queries that are wrong.** Llama needed 96 repairs (DeepSeek 15), 88 of them unknown columns. 50 recovered to SQL that runs, but only about 18 of those returned the right rows; 45 still failed after 3 repairs.
 - **DeepSeek's 12 of 15 repairs were our validator rejecting read-only `INTERSECT` / `UNION` / `EXCEPT`.** That false positive is fixed; the DeepSeek scores predate the fix, the Llama scores don't.
 - A question the agent gives up on is scored as no answer, since the app returns no rows for it.
 - Cost for both runs: DeepSeek $0.35 (median 5.5s per question), Llama $0.11 (1.3s).
-
-The benchmark runs the real graph's nodes against Spider's SQLite files (`backend/eval/`) and doesn't change the app. To reproduce it, unzip Spider into `data/spider/` and clone the evaluator into `data/test-suite-sql-eval/`. The DeepSeek runs use the harness on this branch. The Llama runs, and any other model, need the model-aware harness on the [`small-model-bench`](https://github.com/mehul79/Self-healing-Text2SQL-Agent/tree/small-model-bench) branch, which takes the model from `MODEL_NAME`:
-
-```bash
-uv run python -m backend.eval.run_spider --oracle          # free: gold SQL as predictions, should score 100%
-uv run python -m backend.eval.run_spider                   # repair loop on
-uv run python -m backend.eval.run_spider --max-repairs 0   # repair loop off
-```
 
 ## Project Layout
 
@@ -219,19 +209,6 @@ A saved chat: the collapsed step trail, the generated SQL with a copy button, an
 A new chat. Saved chats are in the sidebar, and the schema browser opens from the header.
 
 ![Empty new chat with the chat sidebar](docs/ui-new-chat.png)
-
-## Future Updates
-
-- [x] Handle follow-up questions ("only for 2025", "now compare with 2024")
-- [ ] Track accuracy, repair count, latency, and cost per query
-- [x] Benchmark against Spider
-- [x] Benchmark a smaller model, to see how much the repair loop closes the gap
-- [ ] Benchmark against BIRD
-- [ ] Retrieve schema with embeddings for schemas too big to send whole
-- [ ] Add a glossary mapping business terms to real tables and columns
-- [ ] Add tracing for the agent's runs
-- [ ] Add database-side query limits and network isolation
-- [ ] Fine-tune a model on collected query data
 
 ## Credits
 
