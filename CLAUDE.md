@@ -97,6 +97,7 @@ code is enough; let the user run it.
 
 ## Teaching style
 
+- Answer concisely: the direct answer first, only the detail needed, no padding.
 - Small runnable example first, short explanation after. Not the reverse.
 - Say *why* this tool over the obvious alternative — LangGraph over a `while`
   loop, SQLAlchemy over raw `psycopg2`, async over threads.

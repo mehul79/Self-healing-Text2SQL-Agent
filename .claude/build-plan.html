@@ -921,75 +921,94 @@
       <div class="rail-label">Learning goals</div>
       <div class="goals">
         <span class="goal"><b>04</b> bounded concurrency</span>
-        <span class="goal"><b>05</b> runtime config vs state</span>
-        <span class="goal"><b>06</b> engine per database</span>
+        <span class="goal"><b>05</b> reusing nodes in a second graph</span>
+        <span class="goal"><b>06</b> SQLite as a file, not a server</span>
       </div>
       <div class="rail-label" style="margin-top:18px">Why SQLite</div>
       <p class="day-note">Spider's gold SQL is SQLite SQL and its scorer runs on SQLite. Porting to Postgres would change the test, and our numbers would no longer compare to anyone else's.</p>
+      <div class="rail-label" style="margin-top:18px">Real graph untouched</div>
+      <p class="day-note">Everything lives in <code>backend/eval/</code>. No existing file changes, the chat app never imports it, and deleting the folder undoes the day. Work happens on a branch.</p>
+      <div class="rail-label" style="margin-top:18px">Cost</div>
+      <p class="day-note">Measured on 25 questions: about $0.0002 per call, so about $0.50 for both full runs ($0.32 without long-reasoning outliers). Each paid run waits for a yes.</p>
     </div>
 
     <div class="blocks">
-      <div class="block">
+      <div class="block done">
         <div class="clock">30 min</div>
         <div>
+          <span class="tag-done">Done</span>
           <h3>Get Spider onto disk</h3>
           <p>The dev set is 1,034 questions over 20 SQLite databases. Unzip it into <code>data/spider/</code>, keep it out of git, and read three examples by hand: question, gold SQL, <code>db_id</code>.</p>
+          <p style="color:var(--muted);font-size:0.86rem">921 files extracted, each checked against the zip's size and CRC. macOS junk skipped, and two CSVs with <code>:</code> in their names renamed with <code>-</code>, since Windows rejects colons. <code>data/</code> and the zip are gitignored.</p>
         </div>
       </div>
 
-      <div class="block">
+      <div class="block done">
         <div class="clock">60 min</div>
         <div>
-          <h3>Point the graph at any database</h3>
-          <p>Nodes stop importing the global engine. The engine comes in through LangGraph's <code>config</code>, one per <code>db_id</code>, cached for the run. SQLite files open with <code>mode=ro</code>, so the read-only rule still holds.</p>
-          <p class="why"><b>learn</b> state is what the graph reasons about. Config is what it runs on. An engine is the second kind.</p>
+          <span class="tag-done">Done</span>
+          <h3>A second graph beside the real one</h3>
+          <p><code>backend/eval/graph.py</code> builds its own graph from the same edges. Only three nodes are its own: <code>retrieve_schema</code> and <code>execute_sql</code> read the Spider file opened with <code>mode=ro</code>, and <code>diagnose_error</code> knows SQLite's <code>no such table</code> before handing off to the real <code>classify_error</code>. The generate, repair, validate, and respond nodes are imported, not copied. A progress handler stops a slow query, since SQLite has no <code>statement_timeout</code>. The repair limit is a parameter of this graph, so the no-repair run needs no edit.</p>
+          <p class="why"><b>learn</b> a node is just a function. Swap the three that touch the database and the rest of the graph doesn't notice.</p>
+          <p style="color:var(--muted);font-size:0.86rem">Self-check <code>python -m backend.eval.graph</code> makes no LLM calls. It covers reflection on all 20 dev databases, a write refused by <code>mode=ro</code>, a runaway recursive query stopped at the time limit and classed as <code>timeout</code>, and SQLite's error wording. Also ran all 1,034 dev gold queries through <code>execute_sql</code>: 0 errors, 4.8s total. <code>git status</code> shows only the new <code>backend/eval/</code>.</p>
         </div>
       </div>
 
-      <div class="block">
-        <div class="clock">45 min</div>
+      <div class="block done">
+        <div class="clock">30 min</div>
         <div>
-          <h3>Make the dialect a parameter</h3>
-          <p><code>sql_guard</code> takes a dialect. The prompt tells the model which one to write. <code>statement_timeout</code> only runs on Postgres, and the wall-clock limit covers SQLite. Chinook's self-checks must still pass.</p>
+          <span class="tag-done">Done</span>
+          <h3>Tell the model it's SQLite</h3>
+          <p>The benchmark's <code>retrieve_schema</code> puts a dialect line at the top of the schema text, and both real prompts paste that text in verbatim. The Postgres syntax hint is overridden only inside the benchmark's process. The validator stays as it is, the real security check, with its Postgres parser. Check: the Chinook self-checks and 16 security tests pass unchanged.</p>
+          <p class="why"><b>learn</b> changing what a node receives instead of changing the node.</p>
+          <p style="color:var(--muted);font-size:0.86rem"><code>DIALECT_NOTE</code> in <code>backend/eval/graph.py</code> names SQLite and the Postgres habits it rejects, including "single quotes for string values", which also covers the validator's double-quote blind spot. Checked: every dev schema starts with the note, and the benchmark process sees the SQLite syntax hint while a separate process still sees the original PostgreSQL one. The security tests and graph self-checks pass, and <code>git status</code> shows only <code>backend/eval/</code> as new.</p>
         </div>
       </div>
 
-      <div class="block">
+      <div class="block done">
         <div class="clock">60 min</div>
         <div>
+          <span class="tag-done">Done</span>
           <h3>Twenty questions in a notebook</h3>
-          <p><code>06-spider-eval.ipynb</code>: run 20 dev questions through the graph, write one predicted SQL per line, and read every failure. Expect the first bugs in our code, not the model.</p>
+          <p><code>06-spider-eval.ipynb</code>: run 20 dev questions through the benchmark graph, write one predicted SQL per line, and read every failure. Record real output tokens and the repair rate to tighten the cost estimate. Watch for double-quoted strings, which the Postgres parser reads as column names. Expect the first bugs in our code, not the model.</p>
+          <p style="color:var(--muted);font-size:0.86rem">Result: 20/20 ran to <code>ok</code>, 1 repair, no double quotes, no harness bugs. The rows matched gold on 16/20. Of the 4 misses, 2 are ties that gold's <code>LIMIT 1</code> breaks arbitrarily: <code>world_1</code> has 7 countries at the minimum population and the model returned all 7. The other 2 are real model mistakes. One repair was classed <code>disallowed_operation</code> on what ended as a plain SELECT, so the harness should log every attempt's SQL to see why. Measured 698 in / 438 out tokens per call and $0.00325 for the run, which puts both full runs at about $0.33.</p>
         </div>
       </div>
 
-      <div class="block">
+      <div class="block done">
         <div class="clock">45 min</div>
         <div>
+          <span class="tag-done">Done</span>
           <h3>Score it with the official script</h3>
           <p>Feed the predictions file to Spider's test-suite evaluator in execution mode. We don't grade ourselves.</p>
+          <p style="color:var(--muted);font-size:0.86rem">Official scorer: <b>80.0% execution accuracy</b> on the 20 (easy 1.00, medium 0.83, hard 0.60, extra 0.50), matching the notebook's rough check. Exact match was 35%, low because the model writes valid SQL in other styles (CTEs, aliases without <code>AS</code>) that exact match can't parse. Scorer cloned to <code>data/test-suite-sql-eval/</code> (commit <code>e97acc5</code>, gitignored). It runs through <code>uv run --no-project --with sqlparse --with nltk</code>, so project dependencies are unchanged, with NLTK's tokenizer data in <code>data/nltk_data/</code>. This is execution accuracy on the original databases, not test-suite accuracy, which needs a separate download of about 1 GB.</p>
         </div>
       </div>
 
-      <div class="block">
+      <div class="block done">
         <div class="clock">60 min</div>
         <div>
+          <span class="tag-done">Done</span>
           <h3>Port the harness</h3>
-          <p><code>backend/eval/run_spider.py</code>. An <code>asyncio.Semaphore</code> caps parallel questions so we stay under the provider's rate limit. One JSONL line per question with attempts, status, error category, and latency. Runnable check: a 5-question slice.</p>
+          <p><code>backend/eval/run_spider.py</code>. An <code>asyncio.Semaphore</code> caps parallel questions so we stay under the provider's rate limit. One engine per <code>db_id</code>, reused across its questions. One JSONL line per question with attempts, status, error category, and latency. Runnable check: a 5-question slice.</p>
+          <p style="color:var(--muted);font-size:0.86rem">Also logs every attempt's SQL and error, plus the model's <code>reasoning</code>. It resumes: finished questions are appended at once and skipped on a re-run, and provider failures get no line, so a re-run retries only those. It scores itself with the official evaluator. Free check: <code>--oracle</code> (gold SQL as predictions) scores 1.000 on all 1,034. Paid check, 5 questions for $0.0027: tokens and attempts logged, scored 3/5. One ambiguous question spent 6,787 output tokens on its <code>reasoning</code>.</p>
         </div>
       </div>
 
-      <div class="block loop">
+      <div class="block loop done">
         <div class="clock">45 min</div>
         <div>
           <span class="tag-loop">The number that matters</span>
+          <span class="tag-done">Done</span>
           <h3>Full dev set, twice</h3>
-          <p>Run once with repairs on, and once with <code>MAX_REPAIR_ATTEMPTS = 0</code>. The gap between the two is what self-healing is worth, measured on 1,034 questions instead of five.</p>
+          <p>Run once with repairs on, and once with the repair limit at 0. The gap between the two is what self-healing is worth, measured on 1,034 questions instead of five.</p>
+          <p style="color:var(--muted);font-size:0.86rem">Official execution accuracy: <b>75.9% with repair</b>, 75.5% without (a separate run), and 75.0% for the repair run's own first attempts. The paired number is the honest one: on identical generations, repair adds <b>+0.9 points</b>. 15 questions needed a repair and all 15 recovered. Run-to-run noise at <code>TEMPERATURE=0.2</code> is about &plusmn;0.5 points, since only 513/1,034 first attempts were identical across runs. Two findings: (1) 12 of the 15 repairs were <code>sql_guard</code> rejecting read-only <code>INTERSECT</code>/<code>UNION</code>/<code>EXCEPT</code>, a validator false positive and not a model error. <b>Fixed after the run</b>: the statement check now also accepts <code>exp.SetOperation</code>, and the FORBIDDEN walk still catches a write hidden inside one. 3 new security tests (19 total), and all 12 rejected Spider queries now pass. These scores are from before the fix. (2) The harness first scored given-up questions using their rejected SQL, which inflated the no-repair run (76.4% before the fix). Given-up questions now count as no answer. Cost: $0.155 + $0.191 = $0.35 for both runs, about 5.5s median per question. The harness now exits non-zero when a question fails, after a provider failure on question 885 let a chained command start early.</p>
         </div>
       </div>
 
       <div class="gate">
         <span class="lbl">End of day 6 — checkpoint</span>
-        <p>Two execution-accuracy numbers from the official scorer, with and without repair, plus first-attempt accuracy, recovery rate, and cost per question. BIRD later reuses the same harness with a different loader.</p>
+        <p><strong>✓ Complete.</strong> Two execution-accuracy numbers from the official scorer, with and without repair, plus first-attempt accuracy, recovery rate, and cost per question. <code>git diff main</code> shows only new files under <code>backend/eval/</code> and the notebook.</p>
       </div>
     </div>
   </section>
