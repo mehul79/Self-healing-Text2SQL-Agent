@@ -174,14 +174,12 @@ The security tests need no database or LLM. The rest need Postgres running, and 
 
 Execution accuracy on the [Spider](https://yale-lily.github.io/spider) dev set (1,034 questions, 20 SQLite databases), scored by Spider's official [test-suite evaluator](https://github.com/taoyds/test-suite-sql-eval). Both models via OpenRouter, `TEMPERATURE=0.2`.
 
-| Model / setup | Easy (248) | Medium (446) | Hard (174) | Extra (166) | **All** |
-| --- | --- | --- | --- | --- | --- |
-| `deepseek-v4-flash-0731`, with repair loop | 87.9 | 78.7 | 71.3 | 55.4 | **75.9** |
-| `deepseek-v4-flash-0731`, same run, first attempts only | 87.9 | 78.7 | 66.7 | 54.8 | 75.0 |
-| `llama-3.1-8b-instruct`, with repair loop | 85.9 | 71.7 | 43.7 | 38.0 | **65.0** |
-| `llama-3.1-8b-instruct`, same run, first attempts only | 83.9 | 69.5 | 43.1 | 37.3 | 63.3 |
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/benchmark-dark.png">
+  <img alt="Spider dev execution accuracy by difficulty for deepseek-v4-flash-0731 and llama-3.1-8b-instruct, with the points added by the repair loop hatched" src="docs/benchmark-light.png">
+</picture>
 
-"First attempts only" scores the same run with every repair removed, so the gap between the two rows of a model is what the repair loop is worth.
+Each solid bar scores the first attempts of a run, with every repair removed; the hatched cap on top is what the repair loop added in that same run.
 
 - **The repair loop helps a small model more, but doesn't close the gap.** It adds +0.9 points for DeepSeek and +1.7 for Llama 3.1 8B. Llama with repair still trails DeepSeek without it by about 10 points, mostly on hard and extra questions.
 - **Repair fixes queries that fail, not queries that are wrong.** Llama needed 96 repairs (DeepSeek 15), 88 of them unknown columns. 50 recovered to SQL that runs, but only about 18 of those returned the right rows; 45 still failed after 3 repairs.
