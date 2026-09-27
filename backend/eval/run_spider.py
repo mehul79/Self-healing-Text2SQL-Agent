@@ -21,6 +21,8 @@ import sys
 import time
 from pathlib import Path
 
+import openai
+from dotenv import load_dotenv
 from langchain_core.callbacks import UsageMetadataCallbackHandler
 
 from backend.eval.graph import build_graph
@@ -31,9 +33,20 @@ SPIDER = Path("data/spider")
 EVAL = Path("data/eval")
 SCORER = Path("data/test-suite-sql-eval")
 
-# deepseek/deepseek-v4-flash-0731 on OpenRouter, per token, as of 2026-09-27. Only
-# used for the cost line in the summary; the provider's own dashboard is the bill.
-PRICE_IN, PRICE_OUT = 0.021 / 1e6, 0.32 / 1e6
+load_dotenv()
+
+# The model comes from MODEL_NAME, like the app. Set it for one command to benchmark
+# another model without touching .env: `$env:MODEL_NAME="..."; uv run ...` (PowerShell).
+MODEL = os.environ["MODEL_NAME"]
+
+# OpenRouter prices per token (input, output), as of 2026-09-28. Only used for the cost
+# line in the summary; the provider's own dashboard is the bill.
+PRICES = {
+    "deepseek/deepseek-v4-flash-0731": (0.021 / 1e6, 0.32 / 1e6),
+    "meta-llama/llama-3.1-8b-instruct": (0.05 / 1e6, 0.08 / 1e6),
+    "qwen/qwen3.5-9b": (0.10 / 1e6, 0.15 / 1e6),
+    "qwen/qwen3-8b": (0.117 / 1e6, 0.455 / 1e6),
+}
 
 # A prediction line is required for every gold line. A question the agent gave up on
 # gets this, which scores as wrong: in the app, a query the validator rejected (or that
@@ -54,31 +67,45 @@ async def run_question(graph, idx: int, q: dict, sem: asyncio.Semaphore) -> dict
     usage = UsageMetadataCallbackHandler()
     state = dict(initial_state(q["question"]))
     attempts = []  # every SQL the graph tried, with the error that sent it to repair
+    model_error = None
     async with sem:
         started = time.monotonic()
-        async for update in graph.astream(
-            state,
-            config={"configurable": {"db_path": db_path(q["db_id"])}, "callbacks": [usage]},
-            stream_mode="updates",
-        ):
-            for node, out in update.items():
-                out = out or {}
-                state.update(out)
-                if node in ("generate_sql", "repair_sql"):
-                    attempts.append({"sql": out.get("sql", ""), "error": None})
-                elif node in ("validate", "execute_sql") and out.get("errors") and attempts:
-                    attempts[-1]["error"] = out["errors"][-1]
+        try:
+            async for update in graph.astream(
+                state,
+                config={"configurable": {"db_path": db_path(q["db_id"])}, "callbacks": [usage]},
+                stream_mode="updates",
+            ):
+                for node, out in update.items():
+                    out = out or {}
+                    state.update(out)
+                    if node in ("generate_sql", "repair_sql"):
+                        attempts.append({"sql": out.get("sql", ""), "error": None})
+                    elif node in ("validate", "execute_sql") and out.get("errors") and attempts:
+                        attempts[-1]["error"] = out["errors"][-1]
+        except openai.APIError:
+            raise  # the provider (429, 5xx, timeout): not the model's fault, retried on the next run
+        except Exception as e:
+            # The model's fault: usually no tool call, or one that doesn't fit SQLResponse,
+            # which the real node hits as an exception. The app would fail this question
+            # too, so it's recorded as a failed answer instead of retried forever.
+            model_error = f"{type(e).__name__}: {e}"
+            attempts.append({"sql": "", "error": f"model output error: {model_error}"})
         seconds = time.monotonic() - started
     tokens = next(iter(usage.usage_metadata.values()), {})
     return {
         "idx": idx,
+        "model": MODEL,
+        # the model name the provider's response reports: proof of what actually answered
+        "served_by": next(iter(usage.usage_metadata), None),
         "db_id": q["db_id"],
         "question": q["question"],
         "gold": q["query"],
         "pred": state["sql"],
         # the model's own explanation; also where most output tokens go on ambiguous questions
         "reasoning": state["reasoning"],
-        "status": state["status"],
+        "status": "failed" if model_error else state["status"],
+        "model_error": model_error,
         "repairs": state["attempts"],
         "error_category": state.get("error_category") or None,
         "attempts": attempts,
@@ -119,8 +146,8 @@ async def run(items, graph, results_path: Path, concurrency: int, oracle: bool) 
         try:
             return await run_question(graph, idx, q, sem)
         except Exception as e:
-            # usually the provider (429, 5xx, timeout) after the client's own retries.
-            # No line is written, so the next run of the same command retries it.
+            # the provider (429, 5xx, timeout) after the client's own retries; model
+            # errors never get here. No line is written, so a re-run retries it.
             return {"idx": idx, "exception": f"{type(e).__name__}: {e}"}
 
     failures, finished = 0, 0
@@ -139,14 +166,20 @@ async def run(items, graph, results_path: Path, concurrency: int, oracle: bool) 
     return failures
 
 
-def score(out_dir: Path) -> str:
+def first_attempt(r: dict) -> str:
+    # what the answer would have been with repair off: the first SQL, or no answer if it failed
+    a = r["attempts"][0] if r["attempts"] else {"sql": r["pred"], "error": None}
+    return " ".join(a["sql"].split()) if a["error"] is None and a["sql"].strip() else NO_PREDICTION
+
+
+def score(out_dir: Path, pred_file: str = "pred.sql") -> str:
     """Spider's official evaluator, execution accuracy, in a throwaway uv environment."""
     if not (SCORER / "evaluation.py").exists():
         return f"scorer not found at {SCORER}; clone taoyds/test-suite-sql-eval there to score"
     cmd = [
         "uv", "run", "--no-project", "--with", "sqlparse", "--with", "nltk", "python", "evaluation.py",
         "--gold", str((out_dir / "gold.sql").resolve()),
-        "--pred", str((out_dir / "pred.sql").resolve()),
+        "--pred", str((out_dir / pred_file).resolve()),
         "--etype", "exec",
         "--db", str((SPIDER / "database").resolve()),
         "--table", str((SPIDER / "tables.json").resolve()),
@@ -166,12 +199,16 @@ def summarize(results: list[dict]) -> str:
     tin = sum(r["input_tokens"] for r in results)
     tout = sum(r["output_tokens"] for r in results)
     ok = sum(r["status"] == "ok" for r in results)
+    model_errors = sum(bool(r.get("model_error")) for r in results)
+    price_in, price_out = PRICES.get(MODEL, (None, None))
+    cost = f"${tin * price_in + tout * price_out:.4f}" if price_in is not None else "unknown (add the model to PRICES)"
     repaired = [r for r in results if r["repairs"] > 0]
     recovered = sum(r["status"] == "ok" for r in repaired)
     return "\n".join([
-        f"questions: {n} | ran to ok: {ok} | gave up: {n - ok}",
+        f"model: {MODEL}",
+        f"questions: {n} | ran to ok: {ok} | gave up: {n - ok} (model output errors: {model_errors})",
         f"needed repair: {len(repaired)} | recovered by repair: {recovered}",
-        f"LLM calls: {calls} | tokens: {tin} in / {tout} out | cost: ${tin * PRICE_IN + tout * PRICE_OUT:.4f}",
+        f"LLM calls: {calls} | tokens: {tin} in / {tout} out | cost: {cost}",
         f"median seconds per question: {sorted(r['seconds'] for r in results)[n // 2]:.1f}",
     ])
 
@@ -190,8 +227,12 @@ def main():
     if args.limit:
         items = random.Random(0).sample(items, args.limit)
 
+    # the model is in the folder name, so a new model never "resumes" another model's results
+    model_slug = MODEL.split("/")[-1].replace(":", "-")
     name = args.name or "_".join(
-        ["spider_dev", "oracle" if args.oracle else f"r{args.max_repairs}"] + ([f"n{args.limit}"] if args.limit else [])
+        ["spider_dev"]
+        + (["oracle"] if args.oracle else [model_slug, f"r{args.max_repairs}"])
+        + ([f"n{args.limit}"] if args.limit else [])
     )
     out_dir = EVAL / name
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -213,7 +254,13 @@ def main():
         "".join(prediction(r) + "\n" for r in results), encoding="utf-8"
     )
 
-    report = summarize(results) + "\n\n" + score(out_dir)
+    report = summarize(results) + "\n\nFinal answers:\n" + score(out_dir)
+    if not args.oracle and args.max_repairs > 0:
+        # same generations with the repairs removed: the fair measure of what repair adds
+        (out_dir / "pred_first_attempt.sql").write_text(
+            "".join(first_attempt(r) + "\n" for r in results), encoding="utf-8"
+        )
+        report += "\n\nFirst attempts only (same run, repairs removed):\n" + score(out_dir, "pred_first_attempt.sql")
     (out_dir / "score.txt").write_text(report + "\n", encoding="utf-8")
     print(report)
 
