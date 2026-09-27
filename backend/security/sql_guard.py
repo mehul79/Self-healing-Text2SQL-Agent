@@ -35,7 +35,10 @@ def validate_sql(
     stmt = statements[0]
     errors = []
 
-    if not isinstance(stmt, (exp.Select, exp.With)):
+    # SetOperation covers UNION / INTERSECT / EXCEPT: read-only combinations of SELECTs.
+    # Their parts don't need checking here; the FORBIDDEN_EXPR walk below searches the
+    # whole tree, so a write hidden inside one is still rejected.
+    if not isinstance(stmt, (exp.Select, exp.With, exp.SetOperation)):
         errors.append(f"only SELECT / WITH...SELECT statements are allowed, got {type(stmt).__name__}")
 
     for forbidden in FORBIDDEN_EXPR:

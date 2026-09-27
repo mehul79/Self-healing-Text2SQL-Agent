@@ -29,6 +29,26 @@ def test_comment_smuggled_drop_is_inert():
     assert validate_sql(sql) == []
 
 
+def test_set_operations_pass():
+    # read-only combinations of SELECTs; these were false positives before
+    for op in ("UNION", "UNION ALL", "INTERSECT", "EXCEPT"):
+        sql = f"SELECT first_name FROM customer {op} SELECT last_name FROM customer"
+        assert validate_sql(sql, known_tables={"customer"}, known_columns=COLUMNS) == [], op
+
+
+def test_delete_hidden_in_union_rejected():
+    sql = (
+        "WITH d AS (DELETE FROM customer RETURNING *) "
+        "SELECT first_name FROM d UNION SELECT first_name FROM customer"
+    )
+    assert validate_sql(sql) != []
+
+
+def test_set_operation_still_checks_tables():
+    sql = "SELECT first_name FROM customer UNION SELECT name FROM ghost_table"
+    assert validate_sql(sql, known_tables={"customer"}) != []
+
+
 def test_ddl_rejected():
     for stmt in [
         "INSERT INTO customer (name) VALUES ('x')",
