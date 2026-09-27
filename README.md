@@ -23,6 +23,7 @@ What I learned building it:
 - [Installation](#installation)
 - [Usage](#usage)
 - [Tests](#tests)
+- [Benchmark](#benchmark)
 - [Project Layout](#project-layout)
 - [UI Demo](#ui-demo)
 - [Future Updates](#future-updates)
@@ -169,6 +170,29 @@ uv run python -m backend.graph.build              # end-to-end graph run, includ
 
 The security tests need no database or LLM. The rest need Postgres running, and the graph run also needs a working LLM provider.
 
+## Benchmark
+
+Execution accuracy on the [Spider](https://yale-lily.github.io/spider) dev set (1,034 questions, 20 SQLite databases), scored by Spider's official [test-suite evaluator](https://github.com/taoyds/test-suite-sql-eval). Model: `deepseek/deepseek-v4-flash-0731` via OpenRouter, `TEMPERATURE=0.2`.
+
+| Setup | Easy (248) | Medium (446) | Hard (174) | Extra (166) | **All** |
+| --- | --- | --- | --- | --- | --- |
+| With repair loop | 87.9 | 78.7 | 71.3 | 55.4 | **75.9** |
+| Same run, first attempts only | 87.9 | 78.7 | 66.7 | 54.8 | 75.0 |
+| Separate run, repair off | 88.3 | 80.3 | 68.4 | 51.2 | 75.5 |
+
+- On the same generations, the repair loop adds **+0.9 points**, all of it on hard and extra questions. 15 questions needed a repair and all 15 recovered.
+- 12 of those 15 repairs were the validator rejecting read-only `INTERSECT` / `UNION` / `EXCEPT`. That false positive is now fixed, so re-running would show repair's gain on real model errors only. These scores are from before the fix.
+- A question the agent gives up on is scored as no answer, since the app returns no rows for it.
+- Both runs cost $0.35 in total, with a median of about 5.5 seconds per question.
+
+The benchmark runs the real graph's nodes against Spider's SQLite files (`backend/eval/`) and doesn't change the app. To reproduce it, unzip Spider into `data/spider/` and clone the evaluator into `data/test-suite-sql-eval/`:
+
+```bash
+uv run python -m backend.eval.run_spider --oracle          # free: gold SQL as predictions, should score 100%
+uv run python -m backend.eval.run_spider                   # repair loop on
+uv run python -m backend.eval.run_spider --max-repairs 0   # repair loop off
+```
+
 ## Project Layout
 
 ```
@@ -176,11 +200,12 @@ backend/
   api/        FastAPI app and routers (schema, models, query, chats)
   chats/      chat store: ORM models and its own writable engine
   database/   read-only engine, sessions, query execution
+  eval/       Spider benchmark: the graph on SQLite files, plus the runner
   graph/      LangGraph state, nodes, and graph wiring
   llm/        provider-agnostic LLM client
   security/   SQL allowlist validator and its tests
 frontend/     Next.js UI
-notebooks/    prototypes: SQLAlchemy, asyncio, LangGraph
+notebooks/    prototypes: SQLAlchemy, asyncio, LangGraph, chats, Spider
 ```
 
 ## UI Demo
@@ -197,7 +222,9 @@ A new chat. Saved chats are in the sidebar, and the schema browser opens from th
 
 - [x] Handle follow-up questions ("only for 2025", "now compare with 2024")
 - [ ] Track accuracy, repair count, latency, and cost per query
-- [ ] Benchmark against Spider and BIRD
+- [x] Benchmark against Spider
+- [ ] Benchmark a smaller model, to see how much the repair loop closes the gap
+- [ ] Benchmark against BIRD
 - [ ] Retrieve schema with embeddings for schemas too big to send whole
 - [ ] Add a glossary mapping business terms to real tables and columns
 - [ ] Add tracing for the agent's runs
