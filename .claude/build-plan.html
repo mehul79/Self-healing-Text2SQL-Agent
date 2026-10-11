@@ -1,4 +1,4 @@
-<title>Six Days to a Self-Healing SQL Agent</title>
+<title>Seven Days to a Self-Healing SQL Agent</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 
 <style>
@@ -424,8 +424,8 @@
 <div class="wrap">
 
   <header class="masthead">
-    <p class="eyebrow">Build plan · 6 days</p>
-    <h1>Six Days to a Self-Healing SQL Agent</h1>
+    <p class="eyebrow">Build plan · 7 days</p>
+    <h1>Seven Days to a Self-Healing SQL Agent</h1>
     <p class="standfirst">
       A day-by-day route from an empty folder to a working agent that writes SQL, runs it against a
       read-only database, notices when it was wrong, and repairs itself — with a React front end that
@@ -471,6 +471,11 @@
       <span class="n">DAY 06</span>
       <span class="t">The scoreboard</span>
       <span class="d">Spider dev set, scored by the official script.</span>
+    </div>
+    <div class="arc-cell">
+      <span class="n">DAY 07</span>
+      <span class="t">The small model</span>
+      <span class="d">Does repair help an 8B model close the gap?</span>
     </div>
   </div>
 
@@ -1013,6 +1018,68 @@
     </div>
   </section>
 
+  <!-- ================= DAY 7 ================= -->
+  <section class="day">
+    <div class="rail">
+      <div class="day-num">07</div>
+      <div class="day-theme">The small model: does repair close the gap?</div>
+      <p class="day-note">DeepSeek rarely writes SQL that errors, so repair had little to fix. A weaker model makes more of the mistakes repair can catch. Branch: <code>small-model-bench</code>.</p>
+      <div class="rail-label">Learning goals</div>
+      <div class="goals">
+        <span class="goal"><b>03</b> provider routing via env</span>
+        <span class="goal"><b>05</b> measuring a loop fairly</span>
+      </div>
+      <div class="rail-label" style="margin-top:18px">Model</div>
+      <p class="day-note"><code>meta-llama/llama-3.1-8b-instruct</code>: 58.3% zero-shot on Spider dev (published), decent tool calling, and $0.05 / $0.08 per million tokens. Set per command with <code>MODEL_NAME</code>, so <code>.env</code> and the chat app keep DeepSeek.</p>
+    </div>
+
+    <div class="blocks">
+      <div class="block done">
+        <div class="clock">45 min</div>
+        <div>
+          <span class="tag-done">Done</span>
+          <h3>Make the harness model-aware</h3>
+          <p>The model name goes into the output folder, so a new model never resumes another's results. A model that returns no tool call, or a broken one, counts as a failed answer instead of being retried forever. There's a price table per model, first attempts are scored on every repair run, and each result records <code>served_by</code>, the model name from the provider's response.</p>
+          <p style="color:var(--muted);font-size:0.86rem">Free checks: the oracle still scores 1.000, and the renamed DeepSeek folders rescore unchanged (75.9% final / 75.0% first attempts).</p>
+        </div>
+      </div>
+
+      <div class="block done">
+        <div class="clock">20 min</div>
+        <div>
+          <span class="tag-done">Done</span>
+          <h3>Test runs on Llama</h3>
+          <p>5 questions to check tool calling, then 50 with repair on.</p>
+          <p style="color:var(--muted);font-size:0.86rem">50 questions: <b>68% final, 66% first attempts</b>, so repair added one question. The 4 repairs were real model errors (2 database errors, 2 unknown columns) and all recovered. No model output errors. 1.4s median per question. <code>served_by</code> was Llama on all 50. Cost $0.002 for both test runs.</p>
+        </div>
+      </div>
+
+      <div class="block loop done">
+        <div class="clock">45 min</div>
+        <div>
+          <span class="tag-loop">The number that matters</span>
+          <span class="tag-done">Done</span>
+          <h3>Full dev set on Llama, twice</h3>
+          <p>1,034 questions with repair on and with it off, about $0.13 for both. The paired first-attempt score gives repair's gain for a small model, to compare with DeepSeek's +0.9.</p>
+          <p style="color:var(--muted);font-size:0.86rem">Official scorer: <b>65.0% with repair, 63.3% first attempts</b>, so repair adds <b>+1.7</b> against DeepSeek's +0.9. A separate run with repair off scored 63.7%. By difficulty: easy 85.9, medium 71.7, hard 43.7, extra 38.0. 96 questions needed repair (DeepSeek 15), 88 of them unknown columns. All were real model errors, not validator false positives. 50 recovered to SQL that runs, but only about 18 returned the right rows, and 45 gave up after 3 repairs. 2 model output errors (no tool call) were recorded as failed. <code>served_by</code> was Llama on all 1,034. Cost $0.108 for both runs, 1.3s median. <b>Answer: no.</b> Llama with repair trails DeepSeek without it by about 10 points, because repair fixes queries that crash, not queries that misread the question.</p>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="clock">30 min</div>
+        <div>
+          <h3>Re-run DeepSeek with the validator fix</h3>
+          <p>The DeepSeek scores predate the <code>INTERSECT</code>/<code>UNION</code> fix, which caused 12 of its 15 repairs. A re-run, about $0.35, makes the two models comparable under the same validator.</p>
+        </div>
+      </div>
+
+      <div class="gate">
+        <span class="lbl">End of day 7 — checkpoint</span>
+        <p>One table: DeepSeek and Llama, each with final and first-attempt execution accuracy on the full dev set, under the same validator. That answers whether small model + repair gets close to large model without it.</p>
+      </div>
+    </div>
+  </section>
+
   <!-- ================= CLOSING ================= -->
   <div class="closing">
     <h2>Done, and deliberately not done</h2>
@@ -1051,7 +1118,7 @@
       reliable, and only two days of this plan actually prove that.
     </p>
 
-    <footer>Companion to PRD v1.0 · phases 1–5 of 8 · learning goals 1–6 plus frontend</footer>
+    <footer>Companion to PRD v1.0 · phases 1–5 of 8, plus a small-model study · learning goals 1–6 plus frontend</footer>
   </div>
 
 </div>
