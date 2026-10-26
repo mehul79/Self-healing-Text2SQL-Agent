@@ -174,24 +174,32 @@ The security tests need no database or LLM. The rest need Postgres running, and 
 
 Execution accuracy on the [Spider](https://yale-lily.github.io/spider) dev set (1,034 questions, 20 SQLite databases), scored by Spider's official [test-suite evaluator](https://github.com/taoyds/test-suite-sql-eval). Both models via OpenRouter. Final answers, with the repair loop on (up to 3 repairs):
 
+<picture>
+  <source srcset="docs/benchmark-dark.png" media="(prefers-color-scheme: dark)">
+  <img alt="Spider dev execution accuracy by difficulty for Llama 3.1 8B, Gemma 3 12B, and Gemma 3 12B with the upgrades; first attempts solid, points added by the repair loop hatched" src="docs/benchmark-light.png">
+</picture>
+
 | Model | Easy (248) | Medium (446) | Hard (174) | Extra (166) | **All (1,034)** |
 | --- | --- | --- | --- | --- | --- |
-| `google/gemma-3-12b-it` | 90.3 | 84.8 | 62.1 | 51.8 | **77.0** |
 | `meta-llama/llama-3.1-8b-instruct` | 85.9 | 71.7 | 43.7 | 38.0 | **65.0** |
+| `google/gemma-3-12b-it` | 90.3 | 84.8 | 62.1 | 51.8 | **77.0** |
+| `google/gemma-3-12b-it` + upgrades | 90.3 | 84.8 | 73.0 | 58.4 | **79.9** |
 
 First attempts only, from the same runs with the repairs removed:
 
 | Model | Easy | Medium | Hard | Extra | All | Repair adds |
 | --- | --- | --- | --- | --- | --- | --- |
-| `google/gemma-3-12b-it` | 90.3 | 83.9 | 60.9 | 48.2 | 75.8 | +1.2 |
 | `meta-llama/llama-3.1-8b-instruct` | 83.9 | 69.5 | 43.1 | 37.3 | 63.3 | +1.7 |
+| `google/gemma-3-12b-it` | 90.3 | 83.9 | 60.9 | 48.2 | 75.8 | +1.2 |
+| `google/gemma-3-12b-it` + upgrades | 89.5 | 84.8 | 71.8 | 56.6 | 79.2 | +0.7 |
 
 Run details:
 
 | Model | Temperature | Needed repair | Recovered | Gave up | Median per question | Cost |
 | --- | --- | --- | --- | --- | --- | --- |
-| `google/gemma-3-12b-it` | 0 | 36 | 21 | 15 | 4.9s | about $0.06 |
 | `meta-llama/llama-3.1-8b-instruct` | 0.2 | 96 | 50 | 47 | 1.3s | $0.11 |
+| `google/gemma-3-12b-it` | 0 | 36 | 21 | 15 | 4.9s | about $0.06 |
+| `google/gemma-3-12b-it` + upgrades | 0 | 102 | 95 | 7 | 5.8s | about $0.07 |
 
 - **Gemma 3 12B beats Llama 3.1 8B by 12 points.** The gap is small on easy questions (about 4 points) and large on hard and extra ones (18 and 14 points).
 - **The repair loop adds little.** It adds +1.2 points for Gemma and +1.7 for Llama. Gemma needed far fewer repairs (36 against 96) and recovered a higher share of them.
@@ -199,7 +207,9 @@ Run details:
 - A question the agent gives up on is scored as no answer, since the app returns no rows for it.
 - The Gemma run used the fixed validator (read-only `INTERSECT` / `UNION` / `EXCEPT` are accepted) at `TEMPERATURE=0`. The Llama run used `TEMPERATURE=0.2`, so the two aren't a perfectly controlled comparison.
 - Gemma's cost is estimated from its token counts at OpenRouter's list price. Llama's is the earlier figure.
-- The richer schema text (primary keys, join paths, sample values) and the "did you mean" column hints were added after these runs. The scores above don't include them.
+- **The upgrades add 2.9 points, almost all on hard and extra questions.** They are the richer schema (primary keys, join paths, and up to 3 sample values per text column), "did you mean" hints for unknown columns, and a result check that gives an empty or NULL-only result one more repair try. First attempts rose from 75.8 to 79.2, mostly on hard (+10.9) and extra (+8.4) questions. The hints and the result check act only during repair, so the first-attempt gain comes from the schema.
+- **The result check added nothing measurable.** It flagged 78 questions. By a rough row-match against the gold SQL it fixed 4 and broke 4, and 38 of the 78 were already correct. On Spider train gold SQL, 14.8% of correct queries return no rows, which is why an empty-result rule is noisy.
+- The richer schema costs about 51% more input tokens (1.0M against 0.67M per run).
 
 ## Project Layout
 
