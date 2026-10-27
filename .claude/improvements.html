@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Accuracy Improvements and Caching</title>
+<style>
+  body { background: #fff; color: #000; font-family: Georgia, "Times New Roman", serif; font-size: 18px; line-height: 1.65; max-width: 780px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 30px; margin: 0 0 8px; }
+  h2 { font-size: 24px; margin: 44px 0 8px; border-bottom: 2px solid #000; padding-bottom: 4px; }
+  h3 { font-size: 19px; margin: 26px 0 4px; }
+  p, li { margin: 6px 0; }
+  code { font-family: Consolas, "Courier New", monospace; font-size: 16px; background: #eee; padding: 1px 5px; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 16px; }
+  th, td { border: 1px solid #000; padding: 6px 10px; text-align: left; vertical-align: top; }
+  th { background: #eee; }
+  .note { border: 2px solid #000; padding: 10px 14px; margin: 16px 0; }
+</style>
+</head>
+<body>
+
+<h1>Accuracy Improvements and Caching</h1>
+<p>What we plan to change in the LangGraph graph and the wider system to raise accuracy, and how caching works in the project today.</p>
+
+<h2>1. Where we are</h2>
+<p>Spider dev, execution accuracy, 1,034 questions.</p>
+<table>
+  <tr><th>Model</th><th>Score</th><th>Repair adds</th></tr>
+  <tr><td>deepseek-v4-flash-0731</td><td>75.9</td><td>+0.9</td></tr>
+  <tr><td>llama-3.1-8b-instruct</td><td>65.0</td><td>+1.7</td></tr>
+</table>
+<p>The DeepSeek score predates the validator fix and was run at temperature 0.2, so a re-run at temperature 0 is the clean baseline.</p>
+
+<h3>The measured weakness</h3>
+<p>The biggest gap is <b>wrong-but-valid SQL</b>: the query runs, returns the wrong rows, and the repair loop never sees it because nothing failed. Repair only fixes queries that error. For Llama, 96 questions needed repair and 88 of those were unknown columns. 50 recovered to SQL that runs, but only about 18 returned the right rows.</p>
+
+<h2>2. Planned improvements</h2>
+<p>Ordered from cheapest to most work. Measure each change on the same run (first attempts against final answers), never across separate runs. Thresholds and rules come from Spider's train set, never from dev results.</p>
+
+<h3>Step 0. Clean baseline</h3>
+<ul>
+  <li><b>Done.</b> Set <code>TEMPERATURE=0</code> for benchmark runs so scores stop drifting by about 0.5 points. Done in <code>.env</code>.</li>
+  <li><b>Done.</b> Re-run the model with the fixed validator, which no longer rejects read-only <code>INTERSECT</code>, <code>UNION</code> and <code>EXCEPT</code>. The Gemma 3 12B run (77.0) used it and is the new baseline.</li>
+</ul>
+
+<h3>Step 1. Cheap schema and prompt upgrades (no new nodes)</h3>
+<table>
+  <tr><th>Change</th><th>Where</th><th>Why</th></tr>
+  <tr><td><b>Done.</b> Richer schema: primary keys, join paths, 2 to 3 sample values per text column</td><td><code>backend/database/schema.py</code> (<code>reflect_schema</code>, <code>format_schema</code>)</td><td>Fixes value mismatches like <code>'Rock'</code> versus <code>'rock'</code>. Also helps BIRD, which has dirty values. Score effect not measured yet.</td></tr>
+  <tr><td><b>Done.</b> "Did you mean" hints for unknown columns, using <code>difflib</code></td><td><code>backend/security/sql_guard.py</code> (<code>validate_sql</code>)</td><td>Targets Llama's 88 unknown-column repairs. Score effect not measured yet.</td></tr>
+  <tr><td>Plan step: list tables, joins and filters before writing the SQL</td><td><code>backend/graph/nodes.py</code> (<code>generate_sql</code>)</td><td>Fewer wrong joins and missed filters.</td></tr>
+  <tr><td>Few-shot examples from Spider's train set</td><td>New <code>retrieve_examples</code> node in <code>nodes.py</code>, wired in <code>build.py</code></td><td>Shows the model the expected style.</td></tr>
+</table>
+
+<h3>Step 2. Attack wrong-but-valid SQL (the biggest gap)</h3>
+<ul>
+  <li><b>Agreement voting.</b> Generate 3 to 5 candidate queries, run them, and pick the answer most candidates agree on, with a confidence score. Stop early when the first candidates agree. This needs a temperature above 0 or two different prompts, so the candidates differ.</li>
+  <li><b>Result sanity checks.</b> A new <code>verify_result</code> node after <code>execute_sql</code>. It looks for empty results, NULL-only columns, and row counts that look wrong for the question. Watch for false alarms on Spider questions with ties.</li>
+  <li><b>Measure the verifier first</b> on gold SQL and on existing <code>results.jsonl</code> predictions. Tune thresholds on train, never on dev.</li>
+  <li><b>Back-translation</b> (turn the SQL back into a question and compare), only if voting leaves a clear gap.</li>
+  <li><b>Rules learned from failures</b> on Spider's train set, added to every prompt (the approach in the ZAS-SQL paper).</li>
+</ul>
+
+<h3>Step 3. Graph shape</h3>
+<p>Today the graph is: understand, retrieve_schema, generate_sql, validate, execute_sql, then respond, with a diagnose_error and repair_sql loop capped at 3 attempts.</p>
+<ul>
+  <li>A <b>Response Validator</b> after execution that can send a bad result back to repair, instead of only catching errors.</li>
+  <li>An <b>intent classifier</b> that exits early on questions that are not SQL questions.</li>
+  <li>Optional: <b>re-plan on failure</b> instead of patching the same SQL.</li>
+  <li>The security rule stays: any new tool or node that runs a query still goes through <code>sql_guard</code>. The LLM is never the security boundary.</li>
+</ul>
+
+<h3>Step 4. Chat app</h3>
+<ul>
+  <li>Improve <code>respond</code>. Today it only says "Query returned N rows".</li>
+  <li>A tool-calling agent (<code>get_schema</code>, <code>get_sample_values</code>, <code>run_query</code>, <code>ask_clarification</code>). Do this last, since it does not target the measured failure.</li>
+</ul>
+
+<h3>Step 5. Evaluation and models</h3>
+<ul>
+  <li>Test-suite accuracy (about 1 GB download), then the BIRD benchmark. BIRD is harder: dirty values, outside knowledge, and an efficiency score. Run it after Spider shows the pipeline improving.</li>
+  <li>Model choice: avoid reasoning models. <code>deepseek-v4.1-flash</code> took 82 seconds per question and wrote about 2,000 tokens for a one-line answer. Cheap non-reasoning models (for example <code>google/gemma-3-12b-it</code>) are the next candidates.</li>
+  <li>A Postgres run, as a separate test of the Postgres path.</li>
+</ul>
+
+<h2>3. How caching works in the project today</h2>
+<div class="note"><b>Short answer:</b> there is almost no caching. The project has no cache for LLM answers, schemas or query results. What exists is listed below, and it is mostly connection reuse.</div>
+
+<table>
+  <tr><th>What</th><th>Where</th><th>What it does</th></tr>
+  <tr><td>Connection pool</td><td><code>backend/database/connection.py:19</code></td><td><code>create_engine(readonly_url, pool_size=5)</code> keeps 5 Postgres connections open and reuses them. This saves connection setup time, not LLM or query work.</td></tr>
+  <tr><td>Engine per database file</td><td><code>backend/eval/graph.py:61</code> (<code>@lru_cache</code> on <code>engine_for</code>)</td><td>Benchmark only. One SQLite engine per Spider database is created once and reused by every question on that database.</td></tr>
+  <tr><td>Resume file</td><td><code>backend/eval/run_spider.py</code> (<code>results.jsonl</code>)</td><td>Benchmark only. Finished questions are saved as they complete, and a re-run skips them. It acts like a cache for paid LLM calls, keyed by question index, but it is not safe across changes. If you change the model, prompt or temperature, you must use a new <code>--name</code>, or the old answers will be reused.</td></tr>
+  <tr><td>Query store</td><td><code>backend/api/routers/query.py:24</code> (<code>_STORE</code>)</td><td>A plain in-memory dict of past responses by <code>query_id</code>, so a result can be fetched again. It is a store, not a cache: it is never used to skip work, and it is lost on restart.</td></tr>
+  <tr><td>Streaming headers</td><td><code>query.py:20</code></td><td><code>Cache-Control: no-cache, no-transform</code> on the stream. This tells proxies not to cache or compress the live event stream.</td></tr>
+</table>
+
+<h3>What is not cached (and costs you on every request)</h3>
+<ul>
+  <li><b>The schema is re-read on every question.</b> <code>retrieve_schema</code> in <code>backend/graph/nodes.py</code> calls <code>reflect_schema()</code> each time, which queries the database catalog. The benchmark now uses the same shared <code>reflect_schema</code> and also re-reads the schema per question.</li>
+  <li><b>No LLM response cache.</b> The same question at temperature 0 pays for a fresh call every time.</li>
+  <li><b>No result cache.</b> Identical SQL is executed again each time.</li>
+</ul>
+
+<h3>Caching we could add, and when it is worth it</h3>
+<table>
+  <tr><th>Cache</th><th>Key</th><th>Benefit</th><th>Risk</th></tr>
+  <tr><td>Schema cache</td><td>database name</td><td>Removes a catalog read per question. Easiest win, and the prompt text stays identical.</td><td>Stale after a schema change. Needs a time limit or a manual clear.</td></tr>
+  <tr><td>LLM response cache</td><td>model, temperature, full prompt text</td><td>Free repeat runs and cheaper benchmark re-runs.</td><td>Only valid at temperature 0. It would hide model changes and defeat voting, which needs varied candidates. Must include the model and prompt in the key.</td></tr>
+  <tr><td>Provider prompt caching</td><td>handled by the provider</td><td>The schema is the long, repeated part of every prompt. Some providers discount repeated prefixes automatically if the schema comes first and stays byte-identical.</td><td>None to build, but richer schemas must stay stable between calls to benefit.</td></tr>
+  <tr><td>Query result cache</td><td>normalized SQL, database</td><td>Skips re-running identical queries.</td><td>Stale data. Skip it unless queries get slow.</td></tr>
+</table>
+
+<div class="note"><b>Security rule for any cache:</b> a cached SQL string must still pass <code>sql_guard</code> before it is executed. Do not let a cache bypass validation.</div>
+
+<p>None of these caches raise accuracy. They cut cost and latency, which matters most for repeated benchmark runs and for voting, where the same prompt is sent several times. I would add the schema cache first and the rest only when a measured cost justifies it.</p>
+
+</body>
+</html>

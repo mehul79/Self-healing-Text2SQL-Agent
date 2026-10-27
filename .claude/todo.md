@@ -9,13 +9,14 @@ SQL: it runs, returns the wrong rows, and repair never sees it. Repair only adde
 
 - [x] Merge `small-model-bench` into `main` (README kept from `main`, six steps stay)
 - [x] Push `main`, delete `spider-benchmark` and `small-model-bench` (local and remote)
-- [ ] Re-run DeepSeek with the fixed validator, about $0.20 (paid, needs approval)
-- [ ] Use `TEMPERATURE=0` for benchmark runs, so scores stop drifting by +-0.5
+- [x] Re-run with the fixed validator at `TEMPERATURE=0`: done with Gemma 3 12B (77.0 on Spider dev), now the baseline
+- [x] Use `TEMPERATURE=0` for benchmark runs, so scores stop drifting by +-0.5
 
 ## Cheap schema and prompt upgrades (no new nodes)
 
-- [ ] "Did you mean" hints for unknown columns (`difflib` in `sql_guard` error text). Targets Llama's 88 unknown-column repairs
-- [ ] Richer schema in `format_schema`: primary keys, join paths, 2-3 sample values per text column (also fixes `'Rock'` vs `'rock'`)
+- [x] One shared `reflect_schema(engine)` for the app and the benchmark (the benchmark's own copy was deleted); schema text verified identical on all 20 Spider dev databases before the richer schema was added
+- [x] "Did you mean" hints for unknown columns (`difflib` in `sql_guard` error text). Targets Llama's 88 unknown-column repairs. Score effect NOT measured yet
+- [x] Richer schema in `format_schema`: primary keys, join paths, 2-3 sample values per text column (also fixes `'Rock'` vs `'rock'`). On for the Spider benchmark, behind `SCHEMA_SAMPLE_VALUES=1` in the app. Score effect NOT measured yet
 - [ ] Plan step inside `generate_sql`: list tables, joins, filters before the SQL
 - [ ] Few-shot examples from Spider's train set, in a new `retrieve_examples` node
 
