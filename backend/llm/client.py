@@ -2,15 +2,21 @@ import os
 
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 load_dotenv()
 
 
 class SQLResponse(BaseModel):
-    sql: str
-    tables_used: list[str]
-    reasoning: str
+    """The final SQL answer for the user's question."""
+
+    # these descriptions travel with the tool schema to every caller (generate and repair)
+    sql: str = Field(
+        description="Exactly one SQL statement and nothing else: no comments, no explanation, "
+        "no markdown, no trailing text. Explanations go in reasoning."
+    )
+    tables_used: list[str] = Field(description="Names of the tables the SQL reads from.")
+    reasoning: str = Field(description="One or two sentences on why this query answers the question.")
 
 
 def get_llm():
