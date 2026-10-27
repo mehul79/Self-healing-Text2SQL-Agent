@@ -154,7 +154,7 @@ def build_graph(max_repairs: int = MAX_REPAIR_ATTEMPTS):
         "execute_sql", route_after_check, {"ok": "verify_result", "repair": "diagnose_error", "give_up": "respond"}
     )
     builder.add_conditional_edges(
-        "verify_result", route_after_check, {"ok": "respond", "repair": "diagnose_error", "give_up": "respond"}
+        "verify_result", lambda state: "repair" if state["errors"] else "ok", {"ok": "respond", "repair": "diagnose_error"}
     )
     builder.add_edge("diagnose_error", "repair_sql")
     builder.add_edge("repair_sql", "validate")

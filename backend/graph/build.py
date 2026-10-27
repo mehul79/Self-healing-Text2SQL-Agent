@@ -23,6 +23,11 @@ def _route_after_check(state: SQLAgentState) -> str:
     return "repair"
 
 
+def _route_after_verify(state: SQLAgentState) -> str:
+    # verify_result only adds an error while repairs are left, so it never gives up
+    return "repair" if state["errors"] else "ok"
+
+
 builder = StateGraph(SQLAgentState)
 builder.add_node("understand", understand)
 builder.add_node("retrieve_schema", retrieve_schema)
@@ -46,7 +51,7 @@ builder.add_conditional_edges(
     "execute_sql", _route_after_check, {"ok": "verify_result", "repair": "diagnose_error", "give_up": "respond"}
 )
 builder.add_conditional_edges(
-    "verify_result", _route_after_check, {"ok": "respond", "repair": "diagnose_error", "give_up": "respond"}
+    "verify_result", _route_after_verify, {"ok": "respond", "repair": "diagnose_error"}
 )
 
 builder.add_edge("diagnose_error", "repair_sql")
