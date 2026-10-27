@@ -130,25 +130,9 @@ Then open http://localhost:3000.
 
 ## Benchmark
 
-Execution accuracy on the [Spider](https://yale-lily.github.io/spider) dev set (1,034 questions, 20 SQLite databases), scored by Spider's official evaluator. Harness rows are final answers with the repair loop on (up to 3 repairs):
+Execution accuracy on the [Spider](https://yale-lily.github.io/spider) dev set (1,034 questions, 20 SQLite databases), scored by Spider's official evaluator. Harness scores are final answers with the repair loop on (up to 3 repairs):
 
-<picture>
-  <source srcset="docs/benchmark-dark.png" media="(prefers-color-scheme: dark)">
-  <img alt="Spider dev execution accuracy by difficulty for Llama 3.1 8B, Qwen3.5-4B-Base, Qwen3.5-4B-SFT and Gemma 3 12B with the harness, and Gemma 3 12B without it; first attempts solid, points added by the repair loop hatched" src="docs/benchmark-light.png">
-</picture>
-
-| Model | Setup | Easy (248) | Medium (446) | Hard (174) | Extra (166) | **All (1,034)** |
-| --- | --- | --- | --- | --- | --- | --- |
-| `meta-llama/llama-3.1-8b-instruct` | Harness | 85.9 | 71.7 | 43.7 | 38.0 | **65.0** |
-| `Qwen/Qwen3.5-4B` (Qwen3.5-4B-Base) | No harness | 69.8 | 63.2 | 46.0 | 23.5 | **55.5** |
-| `Qwen/Qwen3.5-4B` (Qwen3.5-4B-Base) | Harness | 86.7 | 80.5 | 57.5 | 50.0 | **73.2** |
-| [`mehul79/Text2SQL-4B-Model`](https://huggingface.co/mehul79/Text2SQL-4B-Model) (Qwen3.5-4B-SFT) | Harness | 90.3 | 80.0 | 74.7 | 53.0 | **77.3** |
-| `google/gemma-3-12b-it` | Harness | 90.3 | 84.8 | 73.0 | 58.4 | **79.9** |
-| `google/gemma-3-12b-it` | No harness | 93.1 | 86.1 | 69.5 | 57.2 | **80.4** |
-
-- **A 4B model gets close to a 12B one.** With fine-tuning and the harness, Qwen3.5-4B scores 77.3, just 2.6 points behind Gemma 3 12B, a model three times its size. On hard questions it does better (74.7 against 73.0).
-- **The harness lifts the base model a lot**, from 55.5 to 73.2. Fine-tuning adds another 4.1, mostly on hard questions.
-- **The repair loop helps a little** (+0.7 to +1.9). It fixes queries that fail, not ones that run and return wrong rows.
+![Spider dev results: Qwen3.5-4B-SFT with the harness scores 77.3%, 2.6 points behind Gemma 3 12B; base model 55.5% without the harness, 73.2% with it](docs/benchmark-summary.png)
 
 Full tables and run details: [docs/benchmark.md](docs/benchmark.md). Raw per-question results are in [`results/`](results/).
 
