@@ -1,0 +1,9 @@
+torch
+transformers>=4.57
+accelerate
+peft
+trl
+unsloth
+python-dotenv
+huggingface_hub
+tensorboard

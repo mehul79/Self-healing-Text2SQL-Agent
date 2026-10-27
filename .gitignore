@@ -6,3 +6,5 @@ seed/
 data/
 spider_data.zip
 .claude/diagrams/*.visual-check.*
+models/
+outputs/
