@@ -1,9 +1,9 @@
 """Run the benchmark graph over Spider dev and score it with the official evaluator.
 
-    uv run python -m backend.eval.run_spider --oracle --limit 20     # free: gold SQL as predictions
-    uv run python -m backend.eval.run_spider --limit 5               # paid: 5 questions
-    uv run python -m backend.eval.run_spider                         # paid: all 1,034, repairs on
-    uv run python -m backend.eval.run_spider --max-repairs 0         # paid: all 1,034, repairs off
+    uv run python -m backend.eval.run_harness --oracle --limit 20     # free: gold SQL as predictions
+    uv run python -m backend.eval.run_harness --limit 5               # paid: 5 questions
+    uv run python -m backend.eval.run_harness                         # paid: all 1,034, repairs on
+    uv run python -m backend.eval.run_harness --max-repairs 0         # paid: all 1,034, repairs off
 
 Each run writes to data/eval/<name>/: results.jsonl (one line per question, appended
 as it finishes), gold.sql and pred.sql for the scorer, and score.txt. Re-running the
@@ -16,7 +16,6 @@ import asyncio
 import json
 import os
 import random
-import subprocess
 import sys
 import time
 from pathlib import Path
@@ -26,12 +25,9 @@ from dotenv import load_dotenv
 from langchain_core.callbacks import UsageMetadataCallbackHandler
 
 from backend.eval.graph import build_graph
+from backend.eval.spider_scorer import EVAL, NO_PREDICTION, SPIDER, score
 from backend.graph.build import initial_state
 from backend.graph.nodes import MAX_REPAIR_ATTEMPTS
-
-SPIDER = Path("data/spider")
-EVAL = Path("data/eval")
-SCORER = Path("data/test-suite-sql-eval")
 
 load_dotenv()
 
@@ -47,13 +43,6 @@ PRICES = {
     "qwen/qwen3.5-9b": (0.10 / 1e6, 0.15 / 1e6),
     "qwen/qwen3-8b": (0.117 / 1e6, 0.455 / 1e6),
 }
-
-# A prediction line is required for every gold line. A question the agent gave up on
-# gets this, which scores as wrong: in the app, a query the validator rejected (or that
-# errored) never returns rows, so the user got no answer. Scoring the rejected SQL
-# instead would credit answers the system never gave.
-NO_PREDICTION = "SELECT 1"
-
 
 def prediction(r: dict) -> str:
     return " ".join(r["pred"].split()) if r["status"] == "ok" and r["pred"].strip() else NO_PREDICTION
@@ -173,27 +162,6 @@ def first_attempt(r: dict) -> str:
     # off nothing would have sent it back
     failed = a["error"] is not None and not a["error"].startswith("result check")
     return " ".join(a["sql"].split()) if not failed and a["sql"].strip() else NO_PREDICTION
-
-
-def score(out_dir: Path, pred_file: str = "pred.sql") -> str:
-    """Spider's official evaluator, execution accuracy, in a throwaway uv environment."""
-    if not (SCORER / "evaluation.py").exists():
-        return f"scorer not found at {SCORER}; clone taoyds/test-suite-sql-eval there to score"
-    cmd = [
-        "uv", "run", "--no-project", "--with", "sqlparse", "--with", "nltk", "python", "evaluation.py",
-        "--gold", str((out_dir / "gold.sql").resolve()),
-        "--pred", str((out_dir / pred_file).resolve()),
-        "--etype", "exec",
-        "--db", str((SPIDER / "database").resolve()),
-        "--table", str((SPIDER / "tables.json").resolve()),
-    ]
-    env = {**os.environ, "NLTK_DATA": str(Path("data/nltk_data").resolve()), "PYTHONIOENCODING": "utf-8"}
-    proc = subprocess.run(cmd, cwd=SCORER, env=env, capture_output=True, text=True, encoding="utf-8")
-    if proc.returncode != 0:
-        return "scorer failed:\n" + proc.stderr[-2000:]
-    lines = proc.stdout.splitlines()
-    start = next((i for i, line in enumerate(lines) if line.lstrip().startswith("count")), 0)
-    return "\n".join(lines[start:])
 
 
 def summarize(results: list[dict]) -> str:
