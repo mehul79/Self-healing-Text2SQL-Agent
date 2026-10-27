@@ -1,3 +1,5 @@
+import difflib
+
 import sqlglot
 from sqlglot import exp
 
@@ -13,6 +15,11 @@ FORBIDDEN_EXPR = (
     exp.Grant,
     exp.TruncateTable,
 )
+
+
+def _did_you_mean(name: str, candidates: set[str]) -> str:
+    close = difflib.get_close_matches(name, sorted(candidates), n=3, cutoff=0.6)
+    return f". Did you mean: {', '.join(close)}?" if close else ""
 
 
 def validate_sql(
@@ -76,13 +83,19 @@ def validate_sql(
                 if table in cte_names:
                     continue  # can't check columns of a CTE without resolving its body
                 if table in known_columns and col_name not in known_columns[table]:
-                    errors.append(f"unknown column: {column.table}.{column.name}")
+                    errors.append(
+                        f"unknown column: {column.table}.{column.name}"
+                        + _did_you_mean(col_name, known_columns[table])
+                    )
             elif (
                 real_tables
                 and col_name not in select_aliases
                 and not any(col_name in known_columns[t] for t in real_tables)
             ):
-                errors.append(f"unknown column: {column.name}")
+                errors.append(
+                    f"unknown column: {column.name}"
+                    + _did_you_mean(col_name, set().union(*(known_columns[t] for t in real_tables)))
+                )
 
     return errors
 
@@ -99,6 +112,12 @@ if __name__ == "__main__":
     assert validate_sql("SELECT c.first_name FROM customer c", known_columns=COLUMNS) == []
     assert validate_sql("SELECT ghost_column FROM customer", known_columns=COLUMNS) != []
     assert validate_sql("SELECT c.ghost_column FROM customer c", known_columns=COLUMNS) != []
+    # a near-miss gets a suggestion; a name with nothing close gets the plain message
+    errors = validate_sql("SELECT first_nam FROM customer", known_columns=COLUMNS)
+    assert "Did you mean: first_name" in errors[0], errors
+    errors = validate_sql("SELECT c.first_nam FROM customer c", known_columns=COLUMNS)
+    assert "Did you mean: first_name" in errors[0], errors
+    assert validate_sql("SELECT zzzzzz FROM customer", known_columns=COLUMNS) == ["unknown column: zzzzzz"]
     # a name valid on a different table, unqualified, is still a real gap in this check —
     # it can't tell which table an unqualified column belongs to without more work
     assert validate_sql(
