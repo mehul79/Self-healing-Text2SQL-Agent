@@ -22,6 +22,8 @@ export function stepLabel(event: StreamNodeEvent): { text: string; failed: boole
       return error ? { text: `Safety check failed: ${error}`, failed: true } : { text: "Checked the query is safe", failed: false };
     case "execute_sql":
       return error ? { text: `Query failed: ${error}`, failed: true } : { text: "Ran the query", failed: false };
+    case "verify_result":
+      return { text: error ? "Result looked wrong, trying again" : "Checked the result", failed: false };
     case "diagnose_error":
       return { text: "Worked out what went wrong", failed: false };
     case "repair_sql":
@@ -70,6 +72,8 @@ export function statusPhrase(events: StreamNodeEvent[]): string {
     case "validate":
       return hasErrors(last) ? "Working out what went wrong" : "Running the query";
     case "execute_sql":
+      return hasErrors(last) ? "Working out what went wrong" : "Checking the result";
+    case "verify_result":
       return hasErrors(last) ? "Working out what went wrong" : "Writing the answer";
     case "diagnose_error":
       return "Fixing the query";

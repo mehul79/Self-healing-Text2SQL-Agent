@@ -30,6 +30,7 @@ from backend.graph.nodes import (
     QUERY_WALL_CLOCK_SECONDS,
     classify_error,
     generate_sql,
+    make_verify_result,
     repair_sql,
     respond,
     understand,
@@ -137,6 +138,7 @@ def build_graph(max_repairs: int = MAX_REPAIR_ATTEMPTS):
     builder.add_node("generate_sql", generate_sql)
     builder.add_node("validate", validate)
     builder.add_node("execute_sql", execute_sql)
+    builder.add_node("verify_result", make_verify_result(max_repairs))
     builder.add_node("diagnose_error", diagnose_error)
     builder.add_node("repair_sql", repair_sql)
     builder.add_node("respond", respond)
@@ -149,7 +151,10 @@ def build_graph(max_repairs: int = MAX_REPAIR_ATTEMPTS):
         "validate", route_after_check, {"ok": "execute_sql", "repair": "diagnose_error", "give_up": "respond"}
     )
     builder.add_conditional_edges(
-        "execute_sql", route_after_check, {"ok": "respond", "repair": "diagnose_error", "give_up": "respond"}
+        "execute_sql", route_after_check, {"ok": "verify_result", "repair": "diagnose_error", "give_up": "respond"}
+    )
+    builder.add_conditional_edges(
+        "verify_result", route_after_check, {"ok": "respond", "repair": "diagnose_error", "give_up": "respond"}
     )
     builder.add_edge("diagnose_error", "repair_sql")
     builder.add_edge("repair_sql", "validate")

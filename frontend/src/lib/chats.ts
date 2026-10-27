@@ -4,6 +4,7 @@ export type NodeName =
   | "generate_sql"
   | "validate"
   | "execute_sql"
+  | "verify_result"
   | "diagnose_error"
   | "repair_sql"
   | "respond";

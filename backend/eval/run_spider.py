@@ -81,7 +81,7 @@ async def run_question(graph, idx: int, q: dict, sem: asyncio.Semaphore) -> dict
                     state.update(out)
                     if node in ("generate_sql", "repair_sql"):
                         attempts.append({"sql": out.get("sql", ""), "error": None})
-                    elif node in ("validate", "execute_sql") and out.get("errors") and attempts:
+                    elif node in ("validate", "execute_sql", "verify_result") and out.get("errors") and attempts:
                         attempts[-1]["error"] = out["errors"][-1]
         except openai.APIError:
             raise  # the provider (429, 5xx, timeout): not the model's fault, retried on the next run
@@ -169,7 +169,10 @@ async def run(items, graph, results_path: Path, concurrency: int, oracle: bool) 
 def first_attempt(r: dict) -> str:
     # what the answer would have been with repair off: the first SQL, or no answer if it failed
     a = r["attempts"][0] if r["attempts"] else {"sql": r["pred"], "error": None}
-    return " ".join(a["sql"].split()) if a["error"] is None and a["sql"].strip() else NO_PREDICTION
+    # a verify_result flag is not a failure: the query ran and returned rows, and with repair
+    # off nothing would have sent it back
+    failed = a["error"] is not None and not a["error"].startswith("result check")
+    return " ".join(a["sql"].split()) if not failed and a["sql"].strip() else NO_PREDICTION
 
 
 def score(out_dir: Path, pred_file: str = "pred.sql") -> str:

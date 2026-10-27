@@ -5,6 +5,7 @@ from backend.graph.nodes import (
     diagnose_error,
     execute_sql,
     generate_sql,
+    make_verify_result,
     repair_sql,
     respond,
     retrieve_schema,
@@ -28,6 +29,7 @@ builder.add_node("retrieve_schema", retrieve_schema)
 builder.add_node("generate_sql", generate_sql)
 builder.add_node("validate", validate)
 builder.add_node("execute_sql", execute_sql)
+builder.add_node("verify_result", make_verify_result(MAX_REPAIR_ATTEMPTS))
 builder.add_node("diagnose_error", diagnose_error)
 builder.add_node("repair_sql", repair_sql)
 builder.add_node("respond", respond)
@@ -41,7 +43,10 @@ builder.add_conditional_edges(
     "validate", _route_after_check, {"ok": "execute_sql", "repair": "diagnose_error", "give_up": "respond"}
 )
 builder.add_conditional_edges(
-    "execute_sql", _route_after_check, {"ok": "respond", "repair": "diagnose_error", "give_up": "respond"}
+    "execute_sql", _route_after_check, {"ok": "verify_result", "repair": "diagnose_error", "give_up": "respond"}
+)
+builder.add_conditional_edges(
+    "verify_result", _route_after_check, {"ok": "respond", "repair": "diagnose_error", "give_up": "respond"}
 )
 
 builder.add_edge("diagnose_error", "repair_sql")
@@ -65,6 +70,7 @@ def initial_state(question: str, history: list[Turn] | None = None) -> SQLAgentS
         "error_category": "",
         "attempts": 0,
         "result": [],
+        "result_flagged": False,
         "answer": "",
         "status": "ok",
     }

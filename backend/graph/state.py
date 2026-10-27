@@ -21,5 +21,7 @@ class SQLAgentState(TypedDict):
     error_category: str
     attempts: int
     result: list[dict]
+    # verify_result sends a suspicious result back to repair at most once per question
+    result_flagged: bool
     answer: str
     status: str

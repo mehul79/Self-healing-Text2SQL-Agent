@@ -21,6 +21,7 @@ QUERY_WALL_CLOCK_SECONDS = 10
 # error_category -> hint injected into the repair prompt (PRD §16). Matched
 # against the raw message from sql_guard (validate) or Postgres (execute_sql).
 _CATEGORY_MATCHERS = [
+    ("suspicious_result", lambda e: e.startswith("result check")),
     ("unknown_table", lambda e: "unknown table" in e or ("relation" in e and "does not exist" in e)),
     ("unknown_column", lambda e: "column" in e),
     ("syntax_error", lambda e: "syntax error" in e),
@@ -43,6 +44,10 @@ _CATEGORY_HINTS = {
     "read-only SELECT or WITH ... SELECT.",
     "timeout": "The query took too long, likely scanning far more rows than the question "
     "needs. Add a LIMIT, narrow the WHERE clause, or aggregate instead of returning raw rows.",
+    "suspicious_result": "The query ran, but its result looks wrong for the question. If this "
+    "result really is the right answer, return the same SQL unchanged. Otherwise check the "
+    "filter values (exact spelling and case, as in the schema examples), the joins, and the "
+    "conditions, then rewrite it.",
     "unknown": "Diagnose the error message below and correct the query.",
 }
 
@@ -123,6 +128,37 @@ async def execute_sql(state: SQLAgentState) -> dict:
         return {"errors": [f"database error: {e}"]}
 
 
+def check_result(rows: list[dict]) -> str | None:
+    """A reason the rows look wrong, or None. Only checks that need no question text.
+
+    Measured on Spider train gold SQL (4,728 distinct queries, all correct by
+    definition): no rows is 14.8% of them, a NULL-only column is 0.9%. The empty check
+    is noisy, so verify_result flags a question at most once and tells the model it may
+    keep the same SQL.
+    """
+    # ponytail: no row-count-vs-question check ("how many" should give 1 row). The
+    # Spider train questions aren't on disk, so its false-alarm rate can't be measured.
+    if not rows:
+        return "result check: the query returned no rows"
+    for col in rows[0]:
+        if all(r[col] is None for r in rows):
+            return f"result check: the output column {col!r} is NULL in every row"
+    return None
+
+
+def make_verify_result(max_repairs: int):
+    """The verify_result node. It sends a suspicious result back to repair once per
+    question, and only while repair budget is left; otherwise the result is accepted."""
+
+    def verify_result(state: SQLAgentState) -> dict:
+        if state["result_flagged"] or state["attempts"] >= max_repairs:
+            return {}
+        reason = check_result(state["result"])
+        return {"errors": [reason], "result_flagged": True} if reason else {}
+
+    return verify_result
+
+
 def diagnose_error(state: SQLAgentState) -> dict:
     return {"error_category": classify_error(state["errors"][-1])}
 
@@ -178,3 +214,17 @@ if __name__ == "__main__":
     failed = format_history([Turn(question="bad one", sql="SELECT * FROM ghost", status="failed")])
     assert "ghost" not in failed and "this turn failed" in failed
     print("format_history self-check passed")
+
+    assert check_result([{"n": 3}]) is None
+    assert check_result([]).startswith("result check")
+    assert "'a'" in check_result([{"a": None, "b": 1}, {"a": None, "b": 2}])
+    assert check_result([{"a": None}, {"a": 1}]) is None
+    assert classify_error(check_result([])) == "suspicious_result"
+    assert classify_error(check_result([{"a": None}])) == "suspicious_result"  # not "unknown_column"
+    verify = make_verify_result(3)
+    fresh = {"result": [], "attempts": 0, "result_flagged": False}
+    assert verify(fresh)["result_flagged"] is True
+    assert verify({**fresh, "result_flagged": True}) == {}   # flagged once already: accept
+    assert verify({**fresh, "attempts": 3}) == {}            # no repair budget left: accept
+    assert verify({**fresh, "result": [{"n": 1}]}) == {}     # looks fine
+    print("verify_result self-check passed")
