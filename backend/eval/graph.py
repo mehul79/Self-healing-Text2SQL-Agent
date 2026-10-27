@@ -19,11 +19,11 @@ from pathlib import Path
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
-from sqlalchemy import MetaData, create_engine, text
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
 from backend.database.connection import MAX_ROWS
-from backend.database.schema import format_schema
+from backend.database.schema import format_schema, reflect_schema
 from backend.graph import nodes as real_nodes
 from backend.graph.nodes import (
     MAX_REPAIR_ATTEMPTS,
@@ -75,27 +75,9 @@ def _engine(config: RunnableConfig) -> Engine:
     return engine_for(config["configurable"]["db_path"])
 
 
-def _reflect(engine: Engine) -> dict:
-    # same shape as backend.database.schema.reflect_schema, which is tied to the
-    # global Postgres engine. resolve_fks=False: a few Spider files declare foreign
-    # keys to tables that don't exist, and resolving them would raise.
-    metadata = MetaData()
-    metadata.reflect(bind=engine, resolve_fks=False)
-    tables = {}
-    for table_name, table in metadata.tables.items():
-        tables[table_name] = [
-            {
-                "name": col.name,
-                "type": str(col.type),
-                "foreign_key": next(iter(col.foreign_keys)).target_fullname if col.foreign_keys else None,
-            }
-            for col in table.columns
-        ]
-    return tables
-
-
 async def retrieve_schema(state: SQLAgentState, config: RunnableConfig) -> dict:
-    tables = await asyncio.to_thread(_reflect, _engine(config))
+    # Spider's data is public, so sample values are safe to send here
+    tables = await asyncio.to_thread(reflect_schema, _engine(config), True)
     return {
         "schema": DIALECT_NOTE + format_schema(tables),
         "schema_tables": list(tables.keys()),
