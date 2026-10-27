@@ -1,0 +1,10 @@
+model: text2sql-base
+questions: 1034 | ran to ok: 984 | gave up: 50 (model output errors: 1)
+needed repair: 0 | recovered by repair: 0
+LLM calls: 1034 | tokens: 914423 in / 145135 out | cost: unknown (add the model to PRICES)
+median seconds per question: 1.5
+
+Final answers:
+count                248                  446                  174                  166                  1034                
+=====================   EXECUTION ACCURACY     =====================
+execution            0.871                0.780                0.569                0.452                0.714               

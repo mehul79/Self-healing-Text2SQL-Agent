@@ -1,0 +1,15 @@
+model: text2sql-sft
+questions: 1034 | ran to ok: 983 | gave up: 51 (model output errors: 7)
+needed repair: 139 | recovered by repair: 95
+LLM calls: 1269 | tokens: 1147576 in / 162062 out | cost: unknown (add the model to PRICES)
+median seconds per question: 1.6
+
+Final answers:
+count                248                  446                  174                  166                  1034                
+=====================   EXECUTION ACCURACY     =====================
+execution            0.903                0.800                0.747                0.530                0.773               
+
+First attempts only (same run, repairs removed):
+count                248                  446                  174                  166                  1034                
+=====================   EXECUTION ACCURACY     =====================
+execution            0.895                0.769                0.741                0.518                0.754               
