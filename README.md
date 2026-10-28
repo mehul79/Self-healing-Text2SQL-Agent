@@ -58,7 +58,34 @@ Requirements: Python 3.14, [uv](https://docs.astral.sh/uv/), Docker, Node.js.
    uv sync
    ```
 
-2. Copy `.env.example` to `.env` and fill in the Postgres credentials, the read-only user (`READONLY_DB_*`), the chat store user (`APP_DB_*`), and your LLM provider's `BASE_URL`, `LLM_API_KEY`, and `MODEL_NAME`. Set `SCHEMA_SAMPLE_VALUES=1` to send a few real values per column to the LLM.
+2. Copy `.env.example` to `.env` and fill it in:
+
+   ```bash
+   # Postgres owner login. docker compose creates this database with these values
+   POSTGRES_USER=<your_username>
+   POSTGRES_PASSWORD=<your_password>
+   POSTGRES_DB=<your_database_name>
+
+   # The SELECT-only login the app queries your data as. Never the owner above
+   READONLY_DB_USER=readonly_user
+   READONLY_DB_PASSWORD=<your_readonly_password>
+
+   # The chat store: its own database and a login that can write there, and only there
+   APP_DB_USER=app_writer
+   APP_DB_PASSWORD=<your_app_writer_password>
+   APP_DB_NAME=text2sql_app
+
+   PORT=8080
+
+   # Any OpenAI-compatible provider: swap these three, change no code
+   BASE_URL=<provider base url ending in /v1>
+   LLM_API_KEY=<that provider's api key>
+   MODEL_NAME=<a model id that provider serves>
+   TEMPERATURE=0
+
+   # 1 sends up to 3 real values per text column to the LLM; leave unset to keep rows private
+   SCHEMA_SAMPLE_VALUES=
+   ```
 
 3. Start Postgres:
 
