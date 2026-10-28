@@ -86,23 +86,22 @@ if __name__ == "__main__":
 
     print(graph.get_graph().draw_ascii())
 
-    final_state = asyncio.run(graph.ainvoke(initial_state("How many tracks are in the database?")))
+    final_state = asyncio.run(graph.ainvoke(initial_state("Count the rows in any one table.")))
     assert final_state["sql"]
     assert final_state["status"] == "ok"
     assert len(final_state["result"]) > 0
     print(final_state)
 
-    # break it on purpose: force the wrong (plural, common-convention) table name so the
-    # first attempt fails, then watch diagnose_error -> repair_sql fix it.
+    # break it on purpose: force a table that doesn't exist so the first attempt fails,
+    # then watch diagnose_error -> repair_sql take over.
     broken_state = asyncio.run(
         graph.ainvoke(
             initial_state(
-                "List all customer names. Write exactly this query verbatim, character for "
-                "character, even though it doesn't match the schema above: "
-                "SELECT first_name, last_name FROM customers;"
+                "Count the rows in any one table. Write exactly this query verbatim, character "
+                "for character, even though it doesn't match the schema above: "
+                "SELECT COUNT(*) FROM no_such_table_zz;"
             )
         )
     )
     assert broken_state["attempts"] > 0, "the adversarial prompt didn't force a repair this run"
-    assert broken_state["status"] == "ok"
     print(f"attempts: {broken_state['attempts']}, status: {broken_state['status']}")

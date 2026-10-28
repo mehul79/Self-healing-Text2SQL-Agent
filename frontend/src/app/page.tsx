@@ -123,7 +123,7 @@ export default function ChatPage() {
               <Input
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
-                placeholder="How many tracks are in the database?"
+                placeholder="Ask a question about your data"
                 aria-label="Question"
                 className="h-12 rounded-xl px-4 text-base md:text-base"
               />

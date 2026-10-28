@@ -16,7 +16,12 @@ readonly_url = URL.create(
     database=os.environ["POSTGRES_DB"],
 )
 
-readonly_engine = create_engine(readonly_url, pool_size=5)
+# Second layer behind the SELECT-only role: every transaction starts as BEGIN READ ONLY, so
+# even an owner login can't write. Set as an execution option, not a libpq startup option,
+# because poolers like pgbouncer (Supabase, Neon) reject startup options.
+readonly_engine = create_engine(
+    readonly_url, pool_size=5, execution_options={"postgresql_readonly": True}
+)
 
 STATEMENT_TIMEOUT_MS = 5000
 MAX_ROWS = 1000
@@ -37,4 +42,5 @@ def run_query(sql: str) -> list[dict]:
 if __name__ == "__main__":
     with readonly_engine.connect() as conn:
         assert conn.execute(text("SELECT 1")).scalar() == 1
+        assert conn.execute(text("SHOW transaction_read_only")).scalar() == "on"
         print("connection ok")

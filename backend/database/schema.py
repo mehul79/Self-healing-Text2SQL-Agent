@@ -72,10 +72,16 @@ def format_schema(tables: dict) -> str:
 
 
 if __name__ == "__main__":
-    from backend.database.connection import readonly_engine
+    from sqlalchemy import create_engine, text
 
-    tables = reflect_schema(readonly_engine)
-    assert "track" in tables
-    assert any(c["name"] == "album_id" for c in tables["track"])
-    assert any(c["pk"] for c in tables["track"])
+    engine = create_engine("sqlite://")
+    with engine.begin() as conn:
+        conn.execute(text("CREATE TABLE parent (id INTEGER PRIMARY KEY, name TEXT)"))
+        conn.execute(text(
+            "CREATE TABLE child (id INTEGER PRIMARY KEY, parent_id INTEGER REFERENCES parent(id))"
+        ))
+    tables = reflect_schema(engine)
+    assert set(tables) == {"parent", "child"}
+    assert any(c["name"] == "parent_id" and c["foreign_key"] == "parent.id" for c in tables["child"])
+    assert any(c["pk"] for c in tables["child"])
     print(f"reflected {len(tables)} tables")

@@ -10,7 +10,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, rela
 load_dotenv()
 
 # a separate database and a separate role from the agent's read-only engine
-# (backend/database/connection.py): this one can write, but can't connect to Chinook.
+# (backend/database/connection.py): this one can write, but can't connect to the queried database.
 app_url = URL.create(
     "postgresql+psycopg2",
     username=os.environ["APP_DB_USER"],

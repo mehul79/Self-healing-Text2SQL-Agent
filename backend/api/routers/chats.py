@@ -169,9 +169,9 @@ if __name__ == "__main__":
         assert any(c.id == created.id for c in list_chats(session))
 
         chat = session.get(Chat, created.id)
-        chat.messages.append(Message(role="user", content="How many tracks?"))
-        chat.messages.append(Message(role="assistant", content="3503", sql="SELECT COUNT(*) FROM track",
-                                     rows=[{"count": 3503}], status="ok", attempts=0, events=[]))
+        chat.messages.append(Message(role="user", content="How many orders?"))
+        chat.messages.append(Message(role="assistant", content="42", sql="SELECT COUNT(*) FROM orders",
+                                     rows=[{"count": 42}], status="ok", attempts=0, events=[]))
         # SUM()/AVG() come back as Decimal and dates as date; both must survive the JSON column
         chat.messages.append(Message(role="assistant", content="", rows=[{"revenue": Decimal("523.06"),
                                      "day": date(2021, 1, 1)}], status="ok", attempts=0))
@@ -179,9 +179,9 @@ if __name__ == "__main__":
 
         detail = get_chat(created.id, session)
         assert [m.role for m in detail.messages] == ["user", "assistant", "assistant"]
-        assert detail.messages[1].rows == [{"count": 3503}]
+        assert detail.messages[1].rows == [{"count": 42}]
         assert detail.messages[2].rows == [{"revenue": "523.06", "day": "2021-01-01"}]
-        assert _history(chat.messages[:2]) == [Turn(question="How many tracks?", sql="SELECT COUNT(*) FROM track", status="ok")]
+        assert _history(chat.messages[:2]) == [Turn(question="How many orders?", sql="SELECT COUNT(*) FROM orders", status="ok")]
         # a question whose reply never got saved pairs with nothing; the next one does
         orphan = [Message(role="user", content="lost"), Message(role="user", content="kept"),
                   Message(role="assistant", content="", sql=None, status="stopped")]

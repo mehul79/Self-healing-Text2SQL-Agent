@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { ReadOnlyRoleHelp } from "@/components/readonly-role-help";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,6 +17,8 @@ export function SchemaBrowser() {
 
   return (
     <div className="flex flex-col gap-6">
+      <ReadOnlyRoleHelp />
+
       {error && <p className="text-sm text-destructive">Could not load schema: {error}</p>}
 
       {!tables &&
@@ -24,7 +27,7 @@ export function SchemaBrowser() {
 
       {tables && Object.keys(tables).length === 0 && (
         <p className="text-sm text-muted-foreground">
-          The database has no tables. Load the Chinook data, then reload this page.
+          The database has no tables. Add some tables, then reload this page.
         </p>
       )}
 

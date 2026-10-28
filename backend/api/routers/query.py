@@ -86,7 +86,7 @@ async def query_stream(request: QueryRequest):
 
 
 if __name__ == "__main__":
-    response = asyncio.run(query(QueryRequest(question="How many tracks are in the database?")))
+    response = asyncio.run(query(QueryRequest(question="Count the rows in any one table.")))
     assert response.sql
     assert response.status == "ok"
     assert len(response.rows) > 0

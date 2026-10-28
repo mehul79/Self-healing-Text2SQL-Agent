@@ -37,10 +37,10 @@ The agent is a LangGraph state machine. Each node reads and updates a shared typ
 
 ## Features
 
-- Ask questions in plain English about the [Chinook](https://github.com/lerocha/chinook-database) sample database
+- Ask questions in plain English about any Postgres database
 - Schema enrichment: the LLM sees primary keys, join paths, and (optionally) sample values, not just table names
 - A validation step after SQL generation: only `SELECT` queries pass, and unknown tables or columns get a "did you mean" hint
-- Read-only database access with a timeout and a row limit
+- Read-only database access: a SELECT-only role, read-only transactions, a timeout and a row limit
 - Failed or empty queries are fixed and retried, up to 3 times
 - A [fine-tuned Qwen3.5-4B model](https://huggingface.co/mehul79/Text2SQL-4B-Model) that scores 77.3% on Spider, up from 73.2%
 - Works with any OpenAI-compatible LLM provider
@@ -66,11 +66,7 @@ Requirements: Python 3.14, [uv](https://docs.astral.sh/uv/), Docker, Node.js.
    docker compose up -d
    ```
 
-4. Load the Chinook schema and data. Download `Chinook_PostgreSql.sql` from the [Chinook repo](https://github.com/lerocha/chinook-database) into a `seed/` folder at the repo root (it's gitignored), then load it as the owner user:
-
-   ```bash
-   docker compose exec -T postgres psql -U <POSTGRES_USER> -d <POSTGRES_DB> < seed/Chinook_PostgreSql.sql
-   ```
+4. Load your own schema and data into `<POSTGRES_DB>` as the owner user (any Postgres database works; the app reflects whatever tables it finds).
 
 5. Create the read-only role the app connects as, using the name and password from `READONLY_DB_USER` and `READONLY_DB_PASSWORD`:
 
@@ -82,7 +78,7 @@ Requirements: Python 3.14, [uv](https://docs.astral.sh/uv/), Docker, Node.js.
    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO readonly_user;
    ```
 
-6. Create the chat store: a separate database, owned by a role that can write there and can't connect to Chinook. Use the names from `APP_DB_USER` and `APP_DB_NAME`. Run these one at a time in `psql` as the owner user (`CREATE DATABASE` can't run inside a transaction):
+6. Create the chat store: a separate database, owned by a role that can write there and can't connect to the queried database. Use the names from `APP_DB_USER` and `APP_DB_NAME`. Run these one at a time in `psql` as the owner user (`CREATE DATABASE` can't run inside a transaction):
 
    ```sql
    CREATE ROLE app_writer WITH LOGIN PASSWORD '<your_app_writer_password>';
@@ -116,7 +112,7 @@ Example:
 ```bash
 curl -X POST http://127.0.0.1:8000/api/query \
   -H "Content-Type: application/json" \
-  -d '{"question": "How many tracks are in the database?"}'
+  -d '{"question": "Count the rows in any one table."}'
 ```
 
 Start the frontend in a second terminal:
@@ -173,7 +169,6 @@ A new chat. Saved chats are in the sidebar, and the schema browser opens from th
 
 ## Credits
 
-- [Chinook sample database](https://github.com/lerocha/chinook-database)
 - [Spider dataset](https://yale-lily.github.io/spider) and its [official evaluator](https://github.com/taoyds/test-suite-sql-eval)
 - Models: [Qwen3.5-4B](https://huggingface.co/Qwen/Qwen3.5-4B) (base for the fine-tuned model), [Gemma 3 12B](https://huggingface.co/google/gemma-3-12b-it), and [Llama 3.1 8B](https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct)
 - Built with [FastAPI](https://fastapi.tiangolo.com/), [LangGraph](https://langchain-ai.github.io/langgraph/), [SQLAlchemy](https://www.sqlalchemy.org/), [sqlglot](https://github.com/tobymao/sqlglot), [Next.js](https://nextjs.org/), and [shadcn/ui](https://ui.shadcn.com/)
