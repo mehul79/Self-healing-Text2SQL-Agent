@@ -78,7 +78,7 @@ def _engine(config: RunnableConfig) -> Engine:
 
 async def retrieve_schema(state: SQLAgentState, config: RunnableConfig) -> dict:
     # Spider's data is public, so sample values are safe to send here
-    tables = await asyncio.to_thread(reflect_schema, _engine(config), True)
+    tables = await asyncio.to_thread(reflect_schema, _engine(config))
     return {
         "schema": DIALECT_NOTE + format_schema(tables),
         "schema_tables": list(tables.keys()),

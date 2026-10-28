@@ -38,7 +38,7 @@ The agent is a LangGraph state machine. Each node reads and updates a shared typ
 ## Features
 
 - Ask questions in plain English about any Postgres database
-- Schema enrichment: the LLM sees primary keys, join paths, and (optionally) sample values, not just table names
+- Schema enrichment: the LLM sees primary keys, join paths, and up to 3 sample values per text column (these real values are sent to the LLM), not just table names
 - A validation step after SQL generation: only `SELECT` queries pass, and unknown tables or columns get a "did you mean" hint
 - Read-only database access: a SELECT-only role, read-only transactions, a timeout and a row limit
 - Failed or empty queries are fixed and retried, up to 3 times
@@ -80,8 +80,6 @@ Requirements: Python 3.14, [uv](https://docs.astral.sh/uv/), Docker, Node.js.
    MODEL_NAME=<a model id that provider serves>
    TEMPERATURE=0
 
-   # 1 sends up to 3 real values per text column to the LLM; leave unset to keep rows private
-   SCHEMA_SAMPLE_VALUES=
    ```
 
 3. Start the chat store. This Postgres container only holds your saved chats and messages (on port 5433, with the `APP_DB_*` values from `.env`); it never sees your data. The API creates the tables on startup.

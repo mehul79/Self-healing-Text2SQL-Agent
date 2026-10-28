@@ -16,7 +16,7 @@ def _sample_values(engine: Engine, col) -> list[str]:
         return []  # one unreadable column shouldn't lose the whole schema
 
 
-def reflect_schema(engine: Engine, sample_values: bool = False) -> dict:
+def reflect_schema(engine: Engine) -> dict:
     """Tables and columns of whatever database `engine` points at.
 
     The app passes its read-only Postgres engine; the benchmark passes one engine per
@@ -24,8 +24,8 @@ def reflect_schema(engine: Engine, sample_values: bool = False) -> dict:
     that don't exist, and resolving them would raise. The target name is still read
     from the declaration, so nothing is lost.
 
-    sample_values=True also reads up to SAMPLE_COUNT real values per text column, so
-    they go into the prompt. Off by default: it sends database rows to the LLM.
+    It also reads up to SAMPLE_COUNT real values per text column, so they go into the
+    prompt (this sends database rows to the LLM, e.g. so 'Rock' is not guessed as 'rock').
     """
     metadata = MetaData()
     metadata.reflect(bind=engine, resolve_fks=False)
@@ -44,7 +44,7 @@ def reflect_schema(engine: Engine, sample_values: bool = False) -> dict:
                 "foreign_key": fk[0].target_fullname if fk else None,
                 # text columns only; id columns would just show numbers
                 "samples": _sample_values(engine, col)
-                if sample_values and isinstance(col.type, String) and not is_key
+                if isinstance(col.type, String) and not is_key
                 else [],
             })
         tables[table_name] = columns

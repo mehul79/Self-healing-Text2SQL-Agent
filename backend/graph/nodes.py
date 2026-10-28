@@ -1,5 +1,4 @@
 import asyncio
-import os
 
 from backend.database.connection import readonly_engine, run_query
 from backend.database.schema import format_schema, reflect_schema
@@ -87,9 +86,7 @@ def understand(state: SQLAgentState) -> dict:
 
 
 async def retrieve_schema(state: SQLAgentState) -> dict:
-    tables = await asyncio.to_thread(
-        reflect_schema, readonly_engine, os.getenv("SCHEMA_SAMPLE_VALUES") == "1"
-    )
+    tables = await asyncio.to_thread(reflect_schema, readonly_engine)
     return {
         "schema": format_schema(tables),
         "schema_tables": list(tables.keys()),
