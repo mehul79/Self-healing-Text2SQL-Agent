@@ -61,19 +61,16 @@ Requirements: Python 3.14, [uv](https://docs.astral.sh/uv/), Docker, Node.js.
 2. Copy `.env.example` to `.env` and fill it in:
 
    ```bash
-   # Postgres owner login. docker compose creates this database with these values
-   POSTGRES_USER=<your_username>
-   POSTGRES_PASSWORD=<your_password>
-   POSTGRES_DB=<your_database_name>
+   # The database you want to ask questions about: any Postgres URL (local, Supabase, Neon, Aiven...).
+   # Use a SELECT-only role, never the owner. The UI shows the CREATE ROLE statements.
+   TARGET_DB_URL=postgresql://readonly_user:<password>@<host>:5432/<database>
 
-   # The SELECT-only login the app queries your data as. Never the owner above
-   READONLY_DB_USER=readonly_user
-   READONLY_DB_PASSWORD=<your_readonly_password>
-
-   # The chat store: its own database and a login that can write there, and only there
+   # The chat store, the Postgres container from docker-compose.yml. It holds saved chats only.
    APP_DB_USER=app_writer
    APP_DB_PASSWORD=<your_app_writer_password>
    APP_DB_NAME=text2sql_app
+   APP_DB_HOST=localhost
+   APP_DB_PORT=5433
 
    PORT=8080
 
@@ -87,37 +84,23 @@ Requirements: Python 3.14, [uv](https://docs.astral.sh/uv/), Docker, Node.js.
    SCHEMA_SAMPLE_VALUES=
    ```
 
-3. Start Postgres:
+3. Start the chat store. This Postgres container only holds your saved chats and messages (on port 5433, with the `APP_DB_*` values from `.env`); it never sees your data. The API creates the tables on startup.
 
    ```bash
    docker compose up -d
    ```
 
-4. Load your own schema and data into `<POSTGRES_DB>` as the owner user (any Postgres database works; the app reflects whatever tables it finds).
-
-5. Create the read-only role the app connects as, using the name and password from `READONLY_DB_USER` and `READONLY_DB_PASSWORD`:
+4. Create a read-only role in the database you want to query (local or cloud), and put its URL in `TARGET_DB_URL`. Run this as the database owner. The chat UI shows the same statements:
 
    ```sql
    CREATE ROLE readonly_user WITH LOGIN PASSWORD '<your_readonly_password>';
-   GRANT CONNECT ON DATABASE <POSTGRES_DB> TO readonly_user;
+   GRANT CONNECT ON DATABASE <your_database> TO readonly_user;
    GRANT USAGE ON SCHEMA public TO readonly_user;
    GRANT SELECT ON ALL TABLES IN SCHEMA public TO readonly_user;
    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO readonly_user;
    ```
 
-6. Create the chat store: a separate database, owned by a role that can write there and can't connect to the queried database. Use the names from `APP_DB_USER` and `APP_DB_NAME`. Run these one at a time in `psql` as the owner user (`CREATE DATABASE` can't run inside a transaction):
-
-   ```sql
-   CREATE ROLE app_writer WITH LOGIN PASSWORD '<your_app_writer_password>';
-   CREATE DATABASE text2sql_app OWNER app_writer;
-   REVOKE CONNECT ON DATABASE text2sql_app FROM PUBLIC;
-   REVOKE CONNECT ON DATABASE <POSTGRES_DB> FROM PUBLIC;
-   GRANT CONNECT ON DATABASE <POSTGRES_DB> TO readonly_user;
-   ```
-
-   The API creates the chat tables on startup.
-
-7. Install frontend dependencies:
+5. Install frontend dependencies:
 
    ```bash
    cd frontend
@@ -172,7 +155,7 @@ The LoRA adapter for Qwen3.5-4B, trained on Spider, is on Hugging Face: [mehul79
 backend/
   api/        FastAPI app and routers (schema, models, query, chats)
   chats/      chat store: ORM models and its own writable engine
-  database/   read-only engine, sessions, schema reflection, query execution
+  database/   read-only engine for your database, sessions, schema reflection, query execution
   eval/       Spider benchmark: harness and no-harness runners, data download, vendored scorer
   graph/      LangGraph state, nodes, and graph wiring
   llm/        provider-agnostic LLM client

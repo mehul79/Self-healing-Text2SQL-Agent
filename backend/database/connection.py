@@ -1,20 +1,15 @@
 import os
 
 from dotenv import load_dotenv
-from sqlalchemy import URL, create_engine, text
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
 load_dotenv()
 
-# URL.create escapes special characters in the password; an f-string would not.
-readonly_url = URL.create(
-    "postgresql+psycopg2",
-    username=os.environ["READONLY_DB_USER"],
-    password=os.environ["READONLY_DB_PASSWORD"],
-    host=os.getenv("PGHOST", "localhost"),
-    port=int(os.getenv("PGPORT", 5432)),
-    database=os.environ["POSTGRES_DB"],
-)
+# Cloud providers hand out postgres:// or postgresql:// URLs; pin the driver this app installs.
+# Parsing (not string-splicing) keeps special characters in the password intact.
+readonly_url = make_url(os.environ["TARGET_DB_URL"]).set(drivername="postgresql+psycopg2")
 
 # Second layer behind the SELECT-only role: every transaction starts as BEGIN READ ONLY, so
 # even an owner login can't write. Set as an execution option, not a libpq startup option,

@@ -15,8 +15,8 @@ app_url = URL.create(
     "postgresql+psycopg2",
     username=os.environ["APP_DB_USER"],
     password=os.environ["APP_DB_PASSWORD"],
-    host=os.getenv("PGHOST", "localhost"),
-    port=int(os.getenv("PGPORT", 5432)),
+    host=os.getenv("APP_DB_HOST", "localhost"),
+    port=int(os.getenv("APP_DB_PORT", 5433)),
     database=os.environ["APP_DB_NAME"],
 )
 

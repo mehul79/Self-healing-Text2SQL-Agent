@@ -89,8 +89,8 @@ uv run python -c "import nltk; nltk.download('punkt', 'data/nltk_data'); nltk.do
 ```
 
 Point `BASE_URL`, `LLM_API_KEY`, and `MODEL_NAME` in `.env` at any OpenAI-compatible server. The Spider
-eval never connects to Postgres, but `READONLY_DB_USER`, `READONLY_DB_PASSWORD`, and `POSTGRES_DB` must be
-set (placeholders are fine) because the database module reads them at import.
+eval never connects to Postgres, but `TARGET_DB_URL` must be
+set (a placeholder is fine) because the database module reads it at import.
 
 ```bash
 uv run python -m backend.eval.run_harness --oracle --limit 20   # no LLM: checks data, files, and scoring

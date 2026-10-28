@@ -1,12 +1,14 @@
+# The chat store: saved chats and messages. Your own database is never in here;
+# you point TARGET_DB_URL at it in .env.
 services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${APP_DB_USER}
+      POSTGRES_PASSWORD: ${APP_DB_PASSWORD}
+      POSTGRES_DB: ${APP_DB_NAME}
     ports:
-      - "5432:5432"
+      - "${APP_DB_PORT:-5433}:5432"  # 5433 on the host, so it can't clash with a local Postgres on 5432
     volumes:
       - pgdata:/var/lib/postgresql/data
 
