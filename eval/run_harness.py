@@ -1,9 +1,9 @@
 """Run the benchmark graph over Spider dev and score it with the official evaluator.
 
-    uv run python -m backend.eval.run_harness --oracle --limit 20     # free: gold SQL as predictions
-    uv run python -m backend.eval.run_harness --limit 5               # paid: 5 questions
-    uv run python -m backend.eval.run_harness                         # paid: all 1,034, repairs on
-    uv run python -m backend.eval.run_harness --max-repairs 0         # paid: all 1,034, repairs off
+    uv run python -m eval.run_harness --oracle --limit 20     # free: gold SQL as predictions
+    uv run python -m eval.run_harness --limit 5               # paid: 5 questions
+    uv run python -m eval.run_harness                         # paid: all 1,034, repairs on
+    uv run python -m eval.run_harness --max-repairs 0         # paid: all 1,034, repairs off
 
 Each run writes to data/eval/<name>/: results.jsonl (one line per question, appended
 as it finishes), gold.sql and pred.sql for the scorer, and score.txt. Re-running the
@@ -24,8 +24,8 @@ import openai
 from dotenv import load_dotenv
 from langchain_core.callbacks import UsageMetadataCallbackHandler
 
-from backend.eval.graph import build_graph
-from backend.eval.spider_scorer import EVAL, NO_PREDICTION, SPIDER, score
+from eval.graph import build_graph
+from eval.spider_scorer import EVAL, NO_PREDICTION, SPIDER, score
 from backend.graph.build import initial_state
 from backend.graph.nodes import MAX_REPAIR_ATTEMPTS
 

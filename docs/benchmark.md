@@ -2,7 +2,7 @@
 
 Execution accuracy on the [Spider](https://yale-lily.github.io/spider) dev set: 1,034 questions over
 20 SQLite databases. A prediction counts as correct when it returns the same rows as the gold query.
-Scoring uses Spider's official evaluator, vendored unmodified in `backend/eval/spider_scorer/`, run
+Scoring uses Spider's official evaluator, vendored unmodified in `eval/spider_scorer/`, run
 against the standard Spider databases (`data/spider/database`).
 
 <picture>
@@ -14,8 +14,8 @@ against the standard Spider databases (`data/spider/database`).
 
 | Setup | What it is |
 |---|---|
-| **No harness** | One prompt (the `CREATE TABLE` statements and the question), one reply. The SQL is taken from the reply's code block. Nothing is validated or run before scoring. `backend/eval/run_no_harness.py` |
-| **Harness** | The agent's LangGraph graph, pointed at the Spider SQLite file: richer schema, forced `SQLResponse` tool call, SQL guard, read-only execution, result check, and up to 3 repairs. `backend/eval/run_harness.py` |
+| **No harness** | One prompt (the `CREATE TABLE` statements and the question), one reply. The SQL is taken from the reply's code block. Nothing is validated or run before scoring. `eval/run_no_harness.py` |
+| **Harness** | The agent's LangGraph graph, pointed at the Spider SQLite file: richer schema, forced `SQLResponse` tool call, SQL guard, read-only execution, result check, and up to 3 repairs. `eval/run_harness.py` |
 | **First attempt** | The harness's first SQL, from the same run, with the repairs removed |
 
 ## Results
@@ -84,7 +84,7 @@ return the wrong rows, and most wrong answers are the second kind.
 
 ```bash
 uv sync
-uv run python -m backend.eval.download_spider          # data/spider (checksum-verified)
+uv run python -m eval.download_spider          # data/spider (checksum-verified)
 uv run python -c "import nltk; nltk.download('punkt', 'data/nltk_data'); nltk.download('punkt_tab', 'data/nltk_data')"
 ```
 
@@ -93,10 +93,10 @@ eval never connects to Postgres, but `TARGET_DB_URL` must be
 set (a placeholder is fine) because the database module reads it at import.
 
 ```bash
-uv run python -m backend.eval.run_harness --oracle --limit 20   # no LLM: checks data, files, and scoring
-uv run python -m backend.eval.run_harness --max-repairs 0       # harness, repair off
-uv run python -m backend.eval.run_harness                       # harness, repair on
-uv run python -m backend.eval.run_no_harness                    # no harness
+uv run python -m eval.run_harness --oracle --limit 20   # no LLM: checks data, files, and scoring
+uv run python -m eval.run_harness --max-repairs 0       # harness, repair off
+uv run python -m eval.run_harness                       # harness, repair on
+uv run python -m eval.run_no_harness                    # no harness
 ```
 
 Results go to `data/eval/<run>/`: `results.jsonl`, `gold.sql`, `pred.sql`, and `score.txt`. A harness run

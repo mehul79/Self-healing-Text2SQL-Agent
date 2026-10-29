@@ -2,7 +2,7 @@
 
     python training/build_traces.py                  # writes data/sft_train.jsonl and data/sft_val.jsonl
 
-Needs data/spider (python -m backend.eval.download_spider). Gold queries that fail to run are skipped.
+Needs data/spider (python -m eval.download_spider). Gold queries that fail to run are skipped.
 """
 import argparse
 import json

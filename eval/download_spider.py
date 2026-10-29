@@ -1,6 +1,6 @@
 """Download Spider (questions, gold SQL, and the SQLite databases) into data/spider.
 
-    uv run python -m backend.eval.download_spider
+    uv run python -m eval.download_spider
 
 The zip comes from the HAL-9001/spider-databases dataset on Hugging Face and is
 checked against a known SHA-256 before anything is extracted.

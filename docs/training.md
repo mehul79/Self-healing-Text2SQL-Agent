@@ -76,7 +76,7 @@ pip install -r training/requirements-train.txt
 **2. Get Spider.** This uses the app environment (it needs `requests`):
 
 ```bash
-uv run python -m backend.eval.download_spider
+uv run python -m eval.download_spider
 ```
 
 **3. Build the training data.**

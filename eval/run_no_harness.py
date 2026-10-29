@@ -1,7 +1,7 @@
 """The no-harness baseline: one prompt, one completion, no tools, no repair.
 
-    uv run python -m backend.eval.run_no_harness --limit 5    # 5 questions
-    uv run python -m backend.eval.run_no_harness              # all 1,034
+    uv run python -m eval.run_no_harness --limit 5    # 5 questions
+    uv run python -m eval.run_no_harness              # all 1,034
 
 The prompt is the database's CREATE TABLE statements plus the question; the SQL is
 taken from the ```sql block in the reply. The model comes from MODEL_NAME and
@@ -20,7 +20,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from backend.eval.spider_scorer import EVAL, NO_PREDICTION, SPIDER, score
+from eval.spider_scorer import EVAL, NO_PREDICTION, SPIDER, score
 
 load_dotenv()
 

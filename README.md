@@ -154,10 +154,10 @@ backend/
   api/        FastAPI app and routers (schema, models, query, chats)
   chats/      chat store: ORM models and its own writable engine
   database/   read-only engine for your database, sessions, schema reflection, query execution
-  eval/       Spider benchmark: harness and no-harness runners, data download, vendored scorer
   graph/      LangGraph state, nodes, and graph wiring
   llm/        provider-agnostic LLM client
   security/   SQL allowlist validator
+eval/         Spider benchmark: harness and no-harness runners, data download, vendored scorer
 frontend/     Next.js UI: chat, sidebar, schema browser, repair timeline
 notebooks/    prototypes: SQLAlchemy, asyncio, LangGraph, chat store, follow-ups, Spider eval, tool calling
 training/     build Spider SFT traces and LoRA-train Qwen3.5-4B (guide: docs/training.md)
